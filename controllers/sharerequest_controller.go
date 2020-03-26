@@ -81,13 +81,6 @@ func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 }
 
 func (r *ShareRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(&sharev1alpha1.ShareIntent{}, ".metadata.secretRef", func(rawObj runtime.Object) []string {
-		shareIntent := rawObj.(*sharev1alpha1.ShareIntent)
-		return []string{shareIntent.Spec.SecretReference}
-	}); err != nil {
-		return err
-	}
-
 	if err := mgr.GetFieldIndexer().IndexField(&sharev1alpha1.ShareRequest{}, ".metadata.intentRef", func(rawObj runtime.Object) []string {
 		shareRequest := rawObj.(*sharev1alpha1.ShareRequest)
 		return []string{shareRequest.Spec.IntentReference.Name + "/" + shareRequest.Spec.IntentReference.Namespace}

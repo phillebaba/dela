@@ -9,6 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	sharev1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
 )
@@ -37,7 +40,7 @@ func (r *ShareIntentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 	if err := r.Get(ctx, types.NamespacedName{Name: shareIntent.Spec.SecretReference, Namespace: shareIntent.Namespace}, secret); err != nil {
 		log.Error(err, "Could not get ShareIntents referenced Secret", "ShareIntent", shareIntent.Name, "Secret", shareIntent.Spec.SecretReference)
 
-		shareIntent.Status.State = sharev1alpha1.SecretNotFound
+		shareIntent.Status.State = sharev1alpha1.NotFound
 		err := r.Status().Update(ctx, shareIntent)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -56,7 +59,39 @@ func (r *ShareIntentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 }
 
 func (r *ShareIntentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(&sharev1alpha1.ShareIntent{}, ".metadata.secretRef", func(rawObj runtime.Object) []string {
+		shareIntent := rawObj.(*sharev1alpha1.ShareIntent)
+		return []string{shareIntent.Spec.SecretReference}
+	}); err != nil {
+		return err
+	}
+
+	mapFn := handler.ToRequestsFunc(
+		func(a handler.MapObject) []reconcile.Request {
+			ctx := context.Background()
+
+			var shareIntents sharev1alpha1.ShareIntentList
+			if err := r.List(ctx, &shareIntents, client.InNamespace(a.Meta.GetNamespace()), client.MatchingField(".metadata.secretRef", a.Meta.GetName())); err != nil {
+				return nil
+			}
+
+			requests := []reconcile.Request{}
+			for _, shareIntent := range shareIntents.Items {
+				requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+					Name:      shareIntent.Name,
+					Namespace: shareIntent.Namespace,
+				}})
+			}
+
+			return requests
+		},
+	)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&sharev1alpha1.ShareIntent{}).
+		Watches(
+			&source.Kind{Type: &corev1.Secret{}},
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: mapFn},
+		).
 		Complete(r)
 }

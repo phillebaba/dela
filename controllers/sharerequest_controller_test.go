@@ -13,7 +13,7 @@ import (
 	sharev1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
 )
 
-var _ = Describe("Generated Secret Controller", func() {
+var _ = Describe("Share Request Controller", func() {
 	const timeout = time.Second * 30
 	const interval = time.Second * 1
 
