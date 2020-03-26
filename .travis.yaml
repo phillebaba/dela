@@ -1,0 +1,31 @@
+sudo: true
+services: docker
+
+language: go
+go:
+  - 1.14
+
+cache:
+  directories:
+    - $GOPATH/pkg/mod
+
+git:
+  depth: 50
+
+install:
+  - os=$(go env GOOS)
+  - arch=$(go env GOARCH)
+  - version="2.3.0"
+  - curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
+  - sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
+  - export PATH=$PATH:/usr/local/kubebuilder/bin
+
+script:
+  - make docker-build
+
+deploy:
+  provider: script
+  skip_cleanup: true
+  script: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin && make docker-push
+  on:
+    tags: true
