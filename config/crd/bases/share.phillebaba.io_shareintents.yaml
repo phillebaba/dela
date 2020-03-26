@@ -35,10 +35,13 @@ spec:
           description: ShareIntentSpec defines the desired state of ShareIntent
           properties:
             allowedNamespaces:
+              description: Namespaces that are allowed to access the Intent. Supports
+                either plain text or regex. Empty list means allowing all namespaces.
               items:
                 type: string
               type: array
             secretRef:
+              description: Reference to Secret that is shared by Intent.
               type: string
           required:
           - allowedNamespaces

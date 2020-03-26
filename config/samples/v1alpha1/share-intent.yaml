@@ -12,7 +12,6 @@ spec:
   secretRef: main
   allowedNamespaces:
   - ns1
-  - ns2
 ---
 apiVersion: v1
 kind: Secret

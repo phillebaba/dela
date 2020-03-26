@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"regexp"
+	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +43,16 @@ func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return ctrl.Result{}, err
 	}
 
+	matches, err := matchesAllowedNamespace(shareRequest.Namespace, shareIntent.Spec.AllowedNamespaces)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if matches == false {
+		log.Info("ShareIntent does not allow ShareRequest from the current namespace", "Namespace", req.Namespace, "ShareIntent", shareIntentNN, "ShareRequest", req.NamespacedName)
+		return ctrl.Result{Requeue: true, RequeueAfter: time.Minute * 1}, nil
+	}
+
 	secretNN := types.NamespacedName{Name: shareIntent.Spec.SecretReference, Namespace: shareIntentNN.Namespace}
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, secretNN, secret); err != nil {
@@ -51,7 +63,7 @@ func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	secretCopy := secret.DeepCopy()
 	secretCopy.ResourceVersion = ""
 	secretCopy.ObjectMeta.Namespace = shareRequest.Namespace
-	_, err := ctrl.CreateOrUpdate(ctx, r, secretCopy, func() error {
+	_, err = ctrl.CreateOrUpdate(ctx, r, secretCopy, func() error {
 		return controllerutil.SetControllerReference(shareRequest, secretCopy, r.Scheme)
 	})
 
@@ -68,4 +80,24 @@ func (r *ShareRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&sharev1alpha1.ShareRequest{}).
 		Owns(&corev1.Secret{}).
 		Complete(r)
+}
+
+// matchesAllowedNamespace checks if a given namespace matches the regex of any of the allowed namespaces
+func matchesAllowedNamespace(namespace string, allowedNamespaces []string) (bool, error) {
+	if len(allowedNamespaces) == 0 {
+		return true, nil
+	}
+
+	for _, allowedNamespace := range allowedNamespaces {
+		r, err := regexp.Compile(allowedNamespace)
+		if err != nil {
+			return false, err
+		}
+
+		if r.MatchString(namespace) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

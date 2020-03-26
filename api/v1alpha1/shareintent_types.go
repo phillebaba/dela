@@ -6,14 +6,16 @@ import (
 
 // ShareIntentSpec defines the desired state of ShareIntent
 type ShareIntentSpec struct {
+	// Namespaces that are allowed to access the Intent.
+	// Supports either plain text or regex.
+	// Empty list means allowing all namespaces.
 	AllowedNamespaces []string `json:"allowedNamespaces"`
-	SecretReference   string   `json:"secretRef"`
+	// Reference to Secret that is shared by Intent.
+	SecretReference string `json:"secretRef"`
 }
 
 // ShareIntentStatus defines the observed state of ShareIntent
 type ShareIntentStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true
