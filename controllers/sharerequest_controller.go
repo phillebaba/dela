@@ -7,11 +7,15 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	sharev1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
 )
@@ -60,10 +64,11 @@ func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return ctrl.Result{}, err
 	}
 
-	secretCopy := secret.DeepCopy()
-	secretCopy.ResourceVersion = ""
-	secretCopy.ObjectMeta.Namespace = shareRequest.Namespace
+	secretCopy := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secret.Name, Namespace: req.Namespace}}
 	_, err = ctrl.CreateOrUpdate(ctx, r, secretCopy, func() error {
+		secretCopy.Annotations = map[string]string{}
+		secretCopy.Annotations["phillebaba.io/generated-from"] = shareRequest.Namespace + "/" + shareRequest.Name
+		secretCopy.Data = secret.Data
 		return controllerutil.SetControllerReference(shareRequest, secretCopy, r.Scheme)
 	})
 
@@ -76,9 +81,55 @@ func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 }
 
 func (r *ShareRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(&sharev1alpha1.ShareIntent{}, ".metadata.secretRef", func(rawObj runtime.Object) []string {
+		shareIntent := rawObj.(*sharev1alpha1.ShareIntent)
+		return []string{shareIntent.Spec.SecretReference}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(&sharev1alpha1.ShareRequest{}, ".metadata.intentRef", func(rawObj runtime.Object) []string {
+		shareRequest := rawObj.(*sharev1alpha1.ShareRequest)
+		return []string{shareRequest.Spec.IntentReference.Name + "/" + shareRequest.Spec.IntentReference.Namespace}
+	}); err != nil {
+		return err
+	}
+
+	mapFn := handler.ToRequestsFunc(
+		func(a handler.MapObject) []reconcile.Request {
+			ctx := context.Background()
+
+			var shareIntents sharev1alpha1.ShareIntentList
+			if err := r.List(ctx, &shareIntents, client.InNamespace(a.Meta.GetNamespace()), client.MatchingField(".metadata.secretRef", a.Meta.GetName())); err != nil {
+				return nil
+			}
+
+			requests := []reconcile.Request{}
+			for _, shareIntent := range shareIntents.Items {
+				var shareRequests sharev1alpha1.ShareRequestList
+				if err := r.List(ctx, &shareRequests, client.MatchingField(".metadata.intentRef", shareIntent.Name+"/"+shareIntent.Namespace)); err != nil {
+					return nil
+				}
+
+				for _, shareRequest := range shareRequests.Items {
+					requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+						Name:      shareRequest.Name,
+						Namespace: shareRequest.Namespace,
+					}})
+				}
+			}
+
+			return requests
+		},
+	)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&sharev1alpha1.ShareRequest{}).
 		Owns(&corev1.Secret{}).
+		Watches(
+			&source.Kind{Type: &corev1.Secret{}},
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: mapFn},
+		).
 		Complete(r)
 }
 

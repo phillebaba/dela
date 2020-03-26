@@ -6,12 +6,12 @@ import (
 
 // ShareIntentSpec defines the desired state of ShareIntent
 type ShareIntentSpec struct {
+	// Reference to Secret that is shared by Intent.
+	SecretReference string `json:"secretRef"`
 	// Namespaces that are allowed to access the Intent.
 	// Supports either plain text or regex.
 	// Empty list means allowing all namespaces.
-	AllowedNamespaces []string `json:"allowedNamespaces"`
-	// Reference to Secret that is shared by Intent.
-	SecretReference string `json:"secretRef"`
+	AllowedNamespaces []string `json:"allowedNamespaces,omitempty"`
 }
 
 // ShareIntentStatus defines the observed state of ShareIntent

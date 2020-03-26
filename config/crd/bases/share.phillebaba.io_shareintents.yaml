@@ -44,7 +44,6 @@ spec:
               description: Reference to Secret that is shared by Intent.
               type: string
           required:
-          - allowedNamespaces
           - secretRef
           type: object
         status:
