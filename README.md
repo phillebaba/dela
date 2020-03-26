@@ -9,7 +9,9 @@ Kubernetes controller to share Secrets between namespaces.
 ## Background
 Within Kubernetes, a Pod can only read a Secret that exists within the same Namespce as itself. There are probably many reasons for this, one being security concerns. This limitations can create pain points, as teams may want to share Secrets between each other, but they only have access to their own Namespaces. Dela is a proposed solution to the problem, by allowing specific Secrets to be shared from a source Namespace to be shared with a destination Namespace.
 
-![Overview](./assets/overview.png)
+<p align="center">
+  <img src="./assets/overview.png">
+</p>
 
 Dela works by creating a ShareIntent in the source Namespace and a ShareRequest in the destination Namespace. The ShareIntent defines which Secret should be shared. The ShareRequest defines which ShareIntent to copy the secret from. The architecture allows a security model where a Secret can only be shared if explicitly indicated to be shared.
 
