@@ -1,0 +1,10 @@
+domain: phillebaba.io
+repo: github.com/phillebaba/dela
+resources:
+- group: share
+  kind: ShareRequest
+  version: v1alpha1
+- group: share
+  kind: ShareIntent
+  version: v1alpha1
+version: "2"

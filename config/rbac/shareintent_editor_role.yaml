@@ -1,0 +1,24 @@
+# permissions for end users to edit shareintents.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: shareintent-editor-role
+rules:
+- apiGroups:
+  - share.phillebaba.io
+  resources:
+  - shareintents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - share.phillebaba.io
+  resources:
+  - shareintents/status
+  verbs:
+  - get

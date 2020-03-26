@@ -1,0 +1,24 @@
+# permissions for end users to edit sharerequests.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sharerequest-editor-role
+rules:
+- apiGroups:
+  - share.phillebaba.io
+  resources:
+  - sharerequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - share.phillebaba.io
+  resources:
+  - sharerequests/status
+  verbs:
+  - get

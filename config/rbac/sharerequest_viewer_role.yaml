@@ -1,0 +1,20 @@
+# permissions for end users to view sharerequests.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sharerequest-viewer-role
+rules:
+- apiGroups:
+  - share.phillebaba.io
+  resources:
+  - sharerequests
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - share.phillebaba.io
+  resources:
+  - sharerequests/status
+  verbs:
+  - get
