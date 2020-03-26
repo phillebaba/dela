@@ -21,6 +21,26 @@ rules:
 - apiGroups:
   - share.phillebaba.io
   resources:
+  - shareintents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - share.phillebaba.io
+  resources:
+  - shareintents/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - share.phillebaba.io
+  resources:
   - sharerequests
   verbs:
   - create

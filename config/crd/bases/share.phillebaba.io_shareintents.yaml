@@ -8,6 +8,13 @@ metadata:
   creationTimestamp: null
   name: shareintents.share.phillebaba.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.state
+    name: Status
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: share.phillebaba.io
   names:
     kind: ShareIntent
@@ -15,6 +22,8 @@ spec:
     plural: shareintents
     singular: shareintent
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: ShareIntent is the Schema for the shareintents API
@@ -48,6 +57,12 @@ spec:
           type: object
         status:
           description: ShareIntentStatus defines the observed state of ShareIntent
+          properties:
+            state:
+              description: ShareIntentState represents the current state of a ShareIntent.
+              type: string
+          required:
+          - state
           type: object
       type: object
   version: v1alpha1

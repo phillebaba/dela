@@ -74,6 +74,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ShareRequest")
 		os.Exit(1)
 	}
+	if err = (&controllers.ShareIntentReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ShareIntent"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ShareIntent")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
