@@ -13,6 +13,9 @@ import (
 	sharev1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
 )
 
+// TODO
+// Implement test for when ShareIntent has not found Secret
+
 var _ = Describe("Share Request Controller", func() {
 	const timeout = time.Second * 30
 	const interval = time.Second * 1
@@ -22,6 +25,7 @@ var _ = Describe("Share Request Controller", func() {
 
 		It("Should create a copy resource", func() {
 			sourceNS := "ns1"
+			destNS := "ns2"
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "main",
@@ -29,7 +33,6 @@ var _ = Describe("Share Request Controller", func() {
 				},
 				Data: map[string][]byte{"foo": []byte("bar")},
 			}
-			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			shareIntent := &sharev1alpha1.ShareIntent{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "main",
@@ -39,9 +42,6 @@ var _ = Describe("Share Request Controller", func() {
 					SecretReference: secret.Name,
 				},
 			}
-			Expect(k8sClient.Create(ctx, shareIntent)).Should(Succeed())
-
-			destNS := "ns2"
 			shareRequest := &sharev1alpha1.ShareRequest{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "main",
@@ -54,9 +54,11 @@ var _ = Describe("Share Request Controller", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(ctx, shareRequest)).Should(Succeed())
 
 			By("Expecting secret to be copied")
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, shareIntent)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, shareRequest)).Should(Succeed())
 			Eventually(func() *corev1.Secret {
 				secretCopy := &corev1.Secret{}
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: destNS}, secretCopy)
@@ -65,6 +67,13 @@ var _ = Describe("Share Request Controller", func() {
 				WithTransform(func(e *corev1.Secret) string { return e.Name }, Equal(secret.Name)),
 				WithTransform(func(e *corev1.Secret) int { return len(e.Data) }, Equal(len(secret.Data))),
 				WithTransform(func(e *corev1.Secret) []byte { return e.Data["foo"] }, Equal(secret.Data["foo"])),
+			))
+			Eventually(func() *sharev1alpha1.ShareRequest {
+				shareRequest = &sharev1alpha1.ShareRequest{}
+				_ = k8sClient.Get(ctx, types.NamespacedName{Name: shareRequest.Name, Namespace: shareRequest.Namespace}, shareRequest)
+				return shareRequest
+			}, timeout, interval).Should(SatisfyAll(
+				WithTransform(func(e *sharev1alpha1.ShareRequest) sharev1alpha1.ShareRequestState { return e.Status.State }, Equal(sharev1alpha1.SRReady)),
 			))
 
 			By("Expecting copied secret to be updated")
@@ -79,17 +88,68 @@ var _ = Describe("Share Request Controller", func() {
 				WithTransform(func(e *corev1.Secret) int { return len(e.Data) }, Equal(len(secret.Data))),
 				WithTransform(func(e *corev1.Secret) []byte { return e.Data["foo"] }, Equal(secret.Data["foo"])),
 			))
-
-			/*By("Expecting to delete successfully")
-			Eventually(func() error {
-				f := &corev1alpha1.GeneratedSecret{}
-				k8sClient.Get(ctx, key, f)
-				return k8sClient.Delete(ctx, f)
-			}, timeout, interval).Should(Succeed())
-			Eventually(func() error {
-				f := &corev1alpha1.GeneratedSecret{}
-				return k8sClient.Get(ctx, key, f)
-			}, timeout, interval).ShouldNot(Succeed())*/
 		})
 	})
+
+	/*Context("Cluster with existing secret", func() {
+		ctx := context.TODO()
+		ns := SetupTest(ctx)
+
+		It("Should update status", func() {
+			key := types.NamespacedName{
+				Name:      "main",
+				Namespace: ns.Name,
+			}
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+			}
+			shareIntent := &sharev1alpha1.ShareIntent{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Namespace,
+					Namespace: key.Name,
+				},
+				Spec: sharev1alpha1.ShareIntentSpec{
+					SecretReference: secret.Name,
+				},
+			}
+			shareRequest := &sharev1alpha1.ShareRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Name,
+				},
+				Spec: sharev1alpha1.ShareRequestSpec{
+					IntentReference: sharev1alpha1.ShareIntentReference{
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					},
+				},
+			}
+
+			By("Expecting Secret conflict")
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, shareIntent)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, shareRequest)).Should(Succeed())
+			Eventually(func() *sharev1alpha1.ShareRequest {
+				shareRequest = &sharev1alpha1.ShareRequest{}
+				_ = k8sClient.Get(ctx, key, shareRequest)
+				return shareRequest
+			}, timeout, interval).Should(SatisfyAll(
+				WithTransform(func(e *sharev1alpha1.ShareRequest) sharev1alpha1.ShareRequestState { return e.Status.State }, Equal(sharev1alpha1.SRAlreadyExists)),
+			))
+
+			By("Expecting missing ShareIntent")
+			Eventually(k8sClient.Delete(ctx, secret)).Should(Succeed())
+			Eventually(func() *sharev1alpha1.ShareRequest {
+				shareRequest = &sharev1alpha1.ShareRequest{}
+				_ = k8sClient.Get(ctx, key, shareRequest)
+				return shareRequest
+			}, timeout, interval).Should(SatisfyAll(
+				WithTransform(func(e *sharev1alpha1.ShareRequest) sharev1alpha1.ShareRequestState { return e.Status.State }, Equal(sharev1alpha1.SRNotFound)),
+			))
+		})
+	})*/
+
 })

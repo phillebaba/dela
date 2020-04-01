@@ -2,11 +2,13 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,7 +32,6 @@ type ShareRequestReconciler struct {
 // +kubebuilder:rbac:groups=share.phillebaba.io,resources=sharerequests,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=share.phillebaba.io,resources=sharerequests/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-
 func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("sharerequest", req.NamespacedName)
@@ -40,13 +41,25 @@ func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	defer func() {
+		if err := r.Status().Update(ctx, shareRequest); err != nil {
+			log.Error(err, "Could not update ShareRequest status")
+		}
+	}()
+
+	// Get ShareIntent for ShareRequest
 	shareIntentNN := types.NamespacedName{Name: shareRequest.Spec.IntentReference.Name, Namespace: shareRequest.Spec.IntentReference.Namespace}
 	shareIntent := &sharev1alpha1.ShareIntent{}
 	if err := r.Get(ctx, shareIntentNN, shareIntent); err != nil {
-		log.Error(err, "Could not get ShareRequests referenced ShareIntent", "ShareRequest", req.NamespacedName, "ShareIntent", shareIntentNN)
+		if apierrors.IsNotFound(err) {
+			shareRequest.Status.State = sharev1alpha1.SRNotFound
+		}
+
+		log.Error(err, "Could not get ShareIntent referenced ShareRequest", "ShareRequest", req.NamespacedName, "ShareIntent", shareIntentNN)
 		return ctrl.Result{}, err
 	}
 
+	// Check if ShareRequest from namespace is allowed
 	matches, err := matchesAllowedNamespace(shareRequest.Namespace, shareIntent.Spec.AllowedNamespaces)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -57,6 +70,22 @@ func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Minute * 1}, nil
 	}
 
+	// Make sure Secret destination does not already exist
+	existSecret := &corev1.Secret{}
+	err = r.Get(ctx, types.NamespacedName{Name: shareIntent.Spec.SecretReference, Namespace: req.Namespace}, existSecret)
+	if client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, err
+	}
+	if err == nil && existSecret != nil {
+		owner := metav1.GetControllerOf(existSecret)
+		if owner == nil || owner.Kind != "ShareRequest" && owner.Name != shareRequest.Name {
+			shareRequest.Status.State = sharev1alpha1.SRAlreadyExists
+			log.Info("Destination Secret already exists", "Secret", existSecret.Name)
+			return ctrl.Result{}, errors.New("Secret already exists")
+		}
+	}
+
+	// Get Secret for ShareIntent
 	secretNN := types.NamespacedName{Name: shareIntent.Spec.SecretReference, Namespace: shareIntentNN.Namespace}
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, secretNN, secret); err != nil {
@@ -64,6 +93,7 @@ func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return ctrl.Result{}, err
 	}
 
+	// Create copy of ShareIntents Secret
 	secretCopy := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secret.Name, Namespace: req.Namespace}}
 	_, err = ctrl.CreateOrUpdate(ctx, r, secretCopy, func() error {
 		secretCopy.Annotations = map[string]string{}
@@ -76,6 +106,7 @@ func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return ctrl.Result{}, err
 	}
 
+	shareRequest.Status.State = sharev1alpha1.SRReady
 	r.Log.Info("Created or Updated Secret", "Secret", secret.Namespace+"/"+secret.Name)
 	return ctrl.Result{}, nil
 }

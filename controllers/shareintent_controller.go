@@ -26,7 +26,6 @@ type ShareIntentReconciler struct {
 // +kubebuilder:rbac:groups=share.phillebaba.io,resources=shareintents,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=share.phillebaba.io,resources=shareintents/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-
 func (r *ShareIntentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("shareintent", req.NamespacedName)
@@ -36,24 +35,20 @@ func (r *ShareIntentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	defer func() {
+		if err := r.Status().Update(ctx, shareIntent); err != nil {
+			log.Error(err, "Could not update ShareIntent status")
+		}
+	}()
+
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: shareIntent.Spec.SecretReference, Namespace: shareIntent.Namespace}, secret); err != nil {
 		log.Error(err, "Could not get ShareIntents referenced Secret", "ShareIntent", shareIntent.Name, "Secret", shareIntent.Spec.SecretReference)
-
-		shareIntent.Status.State = sharev1alpha1.NotFound
-		err := r.Status().Update(ctx, shareIntent)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
+		shareIntent.Status.State = sharev1alpha1.SINotFound
 		return ctrl.Result{}, err
 	}
 
-	shareIntent.Status.State = sharev1alpha1.Ready
-	err := r.Status().Update(ctx, shareIntent)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	shareIntent.Status.State = sharev1alpha1.SIReady
 
 	return ctrl.Result{}, nil
 }

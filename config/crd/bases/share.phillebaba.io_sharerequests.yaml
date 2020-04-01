@@ -8,6 +8,13 @@ metadata:
   creationTimestamp: null
   name: sharerequests.share.phillebaba.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.state
+    name: Status
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: share.phillebaba.io
   names:
     kind: ShareRequest
@@ -15,6 +22,8 @@ spec:
     plural: sharerequests
     singular: sharerequest
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: ShareRequest is the Schema for the sharerequests API
@@ -56,6 +65,12 @@ spec:
           type: object
         status:
           description: ShareRequestStatus defines the observed state of ShareRequest
+          properties:
+            state:
+              description: ShareRequestState represents the current state of a ShareRequest.
+              type: string
+          required:
+          - state
           type: object
       type: object
   version: v1alpha1
