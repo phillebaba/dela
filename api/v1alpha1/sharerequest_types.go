@@ -19,12 +19,27 @@ type ShareRequestSpec struct {
 	AppendHash bool `json:"appendHash,omitempty"`
 }
 
+// ShareRequestState represents the current state of a ShareRequest.
+type ShareRequestState string
+
+const (
+	// Secret destination already exists.
+	SRAlreadyExists ShareRequestState = "Secret Already Exists"
+	// Could not find ShareIntent referenced by ShareRequest.
+	SRNotFound ShareRequestState = "ShareIntent Not Found"
+	// ShareRequest fulfilled, meaning Secret is present.
+	SRReady ShareRequestState = "Ready"
+)
+
 // ShareRequestStatus defines the observed state of ShareRequest
 type ShareRequestStatus struct {
+	State ShareRequestState `json:"state"`
 }
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // ShareRequest is the Schema for the sharerequests API
 type ShareRequest struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -35,7 +50,6 @@ type ShareRequest struct {
 }
 
 // +kubebuilder:object:root=true
-
 // ShareRequestList contains a list of ShareRequest
 type ShareRequestList struct {
 	metav1.TypeMeta `json:",inline"`

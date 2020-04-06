@@ -19,7 +19,7 @@ var _ = Describe("Share Intent Controller", func() {
 
 	Context("New Cluster", func() {
 		ctx := context.TODO()
-		ns := SetupTest(ctx)
+		ns := SetupTestNamespace(ctx)
 
 		It("Should update status", func() {
 			key := types.NamespacedName{
@@ -50,7 +50,7 @@ var _ = Describe("Share Intent Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: key.Name, Namespace: key.Namespace}, shareIntent)
 				return shareIntent
 			}, timeout, interval).Should(SatisfyAll(
-				WithTransform(func(e *sharev1alpha1.ShareIntent) sharev1alpha1.ShareIntentState { return e.Status.State }, Equal(sharev1alpha1.Ready)),
+				WithTransform(func(e *sharev1alpha1.ShareIntent) sharev1alpha1.ShareIntentState { return e.Status.State }, Equal(sharev1alpha1.SIReady)),
 			))
 
 			By("Expecting status to be Not Found")
@@ -60,7 +60,7 @@ var _ = Describe("Share Intent Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: key.Name, Namespace: key.Namespace}, shareIntent)
 				return shareIntent
 			}, timeout, interval).Should(SatisfyAll(
-				WithTransform(func(e *sharev1alpha1.ShareIntent) sharev1alpha1.ShareIntentState { return e.Status.State }, Equal(sharev1alpha1.NotFound)),
+				WithTransform(func(e *sharev1alpha1.ShareIntent) sharev1alpha1.ShareIntentState { return e.Status.State }, Equal(sharev1alpha1.SINotFound)),
 			))
 
 			By("Expecting status to be Ready")
@@ -71,7 +71,7 @@ var _ = Describe("Share Intent Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: key.Name, Namespace: key.Namespace}, shareIntent)
 				return shareIntent
 			}, timeout, interval).Should(SatisfyAll(
-				WithTransform(func(e *sharev1alpha1.ShareIntent) sharev1alpha1.ShareIntentState { return e.Status.State }, Equal(sharev1alpha1.Ready)),
+				WithTransform(func(e *sharev1alpha1.ShareIntent) sharev1alpha1.ShareIntentState { return e.Status.State }, Equal(sharev1alpha1.SIReady)),
 			))
 		})
 	})

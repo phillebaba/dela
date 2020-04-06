@@ -20,9 +20,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	// +kubebuilder:scaffold:imports
 
 	sharev1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
-	// +kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -52,11 +52,6 @@ var _ = BeforeSuite(func(done Done) {
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
-
-	err = scheme.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = sharev1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
 
 	err = sharev1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -98,9 +93,9 @@ var _ = AfterSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 })
 
-// SetupTest will set up a testing environment.
-// Call this function at the start of each of your tests.
-func SetupTest(ctx context.Context) *corev1.Namespace {
+// SetuptestNamespace creates a test Namespace with a random name.
+// The Namespace will be cleaned up after the test completes.
+func SetupTestNamespace(ctx context.Context) *corev1.Namespace {
 	ns := &corev1.Namespace{}
 
 	BeforeEach(func() {
