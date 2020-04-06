@@ -19,7 +19,7 @@ var _ = Describe("Share Intent Controller", func() {
 
 	Context("New Cluster", func() {
 		ctx := context.TODO()
-		ns := SetupTest(ctx)
+		ns := SetupTestNamespace(ctx)
 
 		It("Should update status", func() {
 			key := types.NamespacedName{

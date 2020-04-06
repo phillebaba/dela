@@ -93,9 +93,9 @@ var _ = AfterSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 })
 
-// SetupTest will set up a testing environment.
-// Call this function at the start of each of your tests.
-func SetupTest(ctx context.Context) *corev1.Namespace {
+// SetuptestNamespace creates a test Namespace with a random name.
+// The Namespace will be cleaned up after the test completes.
+func SetupTestNamespace(ctx context.Context) *corev1.Namespace {
 	ns := &corev1.Namespace{}
 
 	BeforeEach(func() {
