@@ -20,9 +20,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	// +kubebuilder:scaffold:imports
 
 	sharev1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
-	// +kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -53,11 +53,6 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	err = scheme.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = sharev1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
 	err = sharev1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -66,7 +61,7 @@ var _ = BeforeSuite(func(done Done) {
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred(), "failed to create manager")
 
-	err = (&ShareRequestReconciler{
+	/*err = (&ShareRequestReconciler{
 		Client: k8sManager.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ShareRequest"),
 		Scheme: k8sManager.GetScheme(),
@@ -78,7 +73,7 @@ var _ = BeforeSuite(func(done Done) {
 		Log:    ctrl.Log.WithName("controllers").WithName("ShareIntent"),
 		Scheme: k8sManager.GetScheme(),
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())*/
 
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())

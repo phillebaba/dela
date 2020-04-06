@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"time"
 
@@ -15,9 +16,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
+	//"sigs.k8s.io/controller-runtime/pkg/handler"
+	//"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	//"sigs.k8s.io/controller-runtime/pkg/source"
 
 	sharev1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
 )
@@ -76,6 +77,8 @@ func (r *ShareRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
+	fmt.Print("Existing Secret: ")
+	fmt.Println(existSecret)
 	if err == nil && existSecret != nil {
 		owner := metav1.GetControllerOf(existSecret)
 		if owner == nil || owner.Kind != "ShareRequest" && owner.Name != shareRequest.Name {
@@ -119,20 +122,20 @@ func (r *ShareRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	mapFn := handler.ToRequestsFunc(
+	/*mapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			ctx := context.Background()
 
 			var shareIntents sharev1alpha1.ShareIntentList
 			if err := r.List(ctx, &shareIntents, client.InNamespace(a.Meta.GetNamespace()), client.MatchingField(".metadata.secretRef", a.Meta.GetName())); err != nil {
-				return nil
+				return []reconcile.Request{}
 			}
 
 			requests := []reconcile.Request{}
 			for _, shareIntent := range shareIntents.Items {
 				var shareRequests sharev1alpha1.ShareRequestList
 				if err := r.List(ctx, &shareRequests, client.MatchingField(".metadata.intentRef", shareIntent.Name+"/"+shareIntent.Namespace)); err != nil {
-					return nil
+					return []reconcile.Request{}
 				}
 
 				for _, shareRequest := range shareRequests.Items {
@@ -145,15 +148,15 @@ func (r *ShareRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 			return requests
 		},
-	)
+	)*/
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&sharev1alpha1.ShareRequest{}).
 		Owns(&corev1.Secret{}).
-		Watches(
+		/*Watches(
 			&source.Kind{Type: &corev1.Secret{}},
 			&handler.EnqueueRequestsFromMapFunc{ToRequests: mapFn},
-		).
+		).*/
 		Complete(r)
 }
 

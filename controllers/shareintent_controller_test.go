@@ -1,6 +1,6 @@
 package controllers
 
-import (
+/*import (
 	"context"
 	"time"
 
@@ -11,9 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	sharev1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
-)
+)*/
 
-var _ = Describe("Share Intent Controller", func() {
+/*var _ = Describe("Share Intent Controller", func() {
 	const timeout = time.Second * 30
 	const interval = time.Second * 1
 
@@ -75,4 +75,4 @@ var _ = Describe("Share Intent Controller", func() {
 			))
 		})
 	})
-})
+})*/

@@ -43,7 +43,7 @@ func (r *ShareIntentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: shareIntent.Spec.SecretReference, Namespace: shareIntent.Namespace}, secret); err != nil {
-		log.Error(err, "Could not get ShareIntents referenced Secret", "ShareIntent", shareIntent.Name, "Secret", shareIntent.Spec.SecretReference)
+		log.Error(err, "Secret refer by ShareIntent not found", "ShareIntent", shareIntent.Name, "Secret", shareIntent.Spec.SecretReference)
 		shareIntent.Status.State = sharev1alpha1.SINotFound
 		return ctrl.Result{}, err
 	}
@@ -67,7 +67,7 @@ func (r *ShareIntentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 			var shareIntents sharev1alpha1.ShareIntentList
 			if err := r.List(ctx, &shareIntents, client.InNamespace(a.Meta.GetNamespace()), client.MatchingField(".metadata.secretRef", a.Meta.GetName())); err != nil {
-				return nil
+				return []reconcile.Request{}
 			}
 
 			requests := []reconcile.Request{}
