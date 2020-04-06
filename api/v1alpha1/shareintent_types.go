@@ -18,8 +18,10 @@ type ShareIntentSpec struct {
 type ShareIntentState string
 
 const (
+	// Secret referenced by ShareIntent could not be found.
 	SINotFound ShareIntentState = "Secret Not Found"
-	SIReady    ShareIntentState = "Ready"
+	// Secret has been located.
+	SIReady ShareIntentState = "Ready"
 )
 
 // ShareIntentStatus defines the observed state of ShareIntent

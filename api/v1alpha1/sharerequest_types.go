@@ -23,9 +23,12 @@ type ShareRequestSpec struct {
 type ShareRequestState string
 
 const (
+	// Secret destination already exists.
 	SRAlreadyExists ShareRequestState = "Secret Already Exists"
-	SRNotFound      ShareRequestState = "ShareIntent Not Found"
-	SRReady         ShareRequestState = "Ready"
+	// Could not find ShareIntent referenced by ShareRequest.
+	SRNotFound ShareRequestState = "ShareIntent Not Found"
+	// ShareRequest fulfilled, meaning Secret is present.
+	SRReady ShareRequestState = "Ready"
 )
 
 // ShareRequestStatus defines the observed state of ShareRequest

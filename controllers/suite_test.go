@@ -61,7 +61,7 @@ var _ = BeforeSuite(func(done Done) {
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred(), "failed to create manager")
 
-	/*err = (&ShareRequestReconciler{
+	err = (&ShareRequestReconciler{
 		Client: k8sManager.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ShareRequest"),
 		Scheme: k8sManager.GetScheme(),
@@ -73,7 +73,7 @@ var _ = BeforeSuite(func(done Done) {
 		Log:    ctrl.Log.WithName("controllers").WithName("ShareIntent"),
 		Scheme: k8sManager.GetScheme(),
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())*/
+	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
