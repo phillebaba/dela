@@ -16,9 +16,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	//"sigs.k8s.io/controller-runtime/pkg/handler"
-	//"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	//"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	sharev1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
 )
@@ -122,7 +122,7 @@ func (r *ShareRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	/*mapFn := handler.ToRequestsFunc(
+	mapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			ctx := context.Background()
 
@@ -148,15 +148,15 @@ func (r *ShareRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 			return requests
 		},
-	)*/
+	)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&sharev1alpha1.ShareRequest{}).
 		Owns(&corev1.Secret{}).
-		/*Watches(
+		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
 			&handler.EnqueueRequestsFromMapFunc{ToRequests: mapFn},
-		).*/
+		).
 		Complete(r)
 }
 
