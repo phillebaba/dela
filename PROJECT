@@ -1,10 +1,10 @@
 domain: phillebaba.io
 repo: github.com/phillebaba/dela
 resources:
-- group: share
-  kind: ShareRequest
+- group: dela
+  kind: Request
   version: v1alpha1
-- group: share
-  kind: ShareIntent
+- group: dela
+  kind: Intent
   version: v1alpha1
 version: "2"
