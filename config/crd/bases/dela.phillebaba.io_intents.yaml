@@ -6,7 +6,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
-  name: shareintents.share.phillebaba.io
+  name: intents.dela.phillebaba.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .status.state
@@ -15,18 +15,18 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
-  group: share.phillebaba.io
+  group: dela.phillebaba.io
   names:
-    kind: ShareIntent
-    listKind: ShareIntentList
-    plural: shareintents
-    singular: shareintent
+    kind: Intent
+    listKind: IntentList
+    plural: intents
+    singular: intent
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: ShareIntent is the Schema for the shareintents API
+      description: Intent is the Schema for the Intents API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -41,7 +41,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: ShareIntentSpec defines the desired state of ShareIntent
+          description: IntentSpec defines the desired state of Intent
           properties:
             allowedNamespaces:
               description: Namespaces that are allowed to access the Intent. Supports
@@ -56,10 +56,10 @@ spec:
           - secretRef
           type: object
         status:
-          description: ShareIntentStatus defines the observed state of ShareIntent
+          description: IntentStatus defines the observed state of Intent
           properties:
             state:
-              description: ShareIntentState represents the current state of a ShareIntent.
+              description: IntentState represents the current state of a Intent.
               type: string
           required:
           - state

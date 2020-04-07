@@ -10,7 +10,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	sharev1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
+	delav1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
 	"github.com/phillebaba/dela/controllers"
 	// +kubebuilder:scaffold:imports
 )
@@ -22,7 +22,7 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = sharev1alpha1.AddToScheme(scheme)
+	_ = delav1alpha1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -49,7 +49,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.ShareRequestReconciler{
+	if err = (&controllers.RequestReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ShareRequest"),
 		Scheme: mgr.GetScheme(),
@@ -57,7 +57,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ShareRequest")
 		os.Exit(1)
 	}
-	if err = (&controllers.ShareIntentReconciler{
+	if err = (&controllers.IntentReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ShareIntent"),
 		Scheme: mgr.GetScheme(),

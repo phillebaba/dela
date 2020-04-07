@@ -6,7 +6,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
-  name: sharerequests.share.phillebaba.io
+  name: requests.dela.phillebaba.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .status.state
@@ -15,18 +15,18 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
-  group: share.phillebaba.io
+  group: dela.phillebaba.io
   names:
-    kind: ShareRequest
-    listKind: ShareRequestList
-    plural: sharerequests
-    singular: sharerequest
+    kind: Request
+    listKind: RequestList
+    plural: requests
+    singular: request
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: ShareRequest is the Schema for the sharerequests API
+      description: Request is the Schema for the Requests API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -41,7 +41,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: ShareRequestSpec defines the desired state of ShareRequest
+          description: RequestSpec defines the desired state of Request
           properties:
             appendHash:
               description: If hash should be appened to end of secret
@@ -64,10 +64,10 @@ spec:
           - intentRef
           type: object
         status:
-          description: ShareRequestStatus defines the observed state of ShareRequest
+          description: RequestStatus defines the observed state of Request
           properties:
             state:
-              description: ShareRequestState represents the current state of a ShareRequest.
+              description: RequestState represents the current state of a Request.
               type: string
           required:
           - state

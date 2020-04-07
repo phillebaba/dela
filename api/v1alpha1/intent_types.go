@@ -4,8 +4,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ShareIntentSpec defines the desired state of ShareIntent
-type ShareIntentSpec struct {
+// IntentSpec defines the desired state of Intent
+type IntentSpec struct {
 	// Reference to Secret that is shared by Intent.
 	SecretReference string `json:"secretRef"`
 	// Namespaces that are allowed to access the Intent.
@@ -14,42 +14,42 @@ type ShareIntentSpec struct {
 	AllowedNamespaces []string `json:"allowedNamespaces,omitempty"`
 }
 
-// ShareIntentState represents the current state of a ShareIntent.
-type ShareIntentState string
+// IntentState represents the current state of a Intent.
+type IntentState string
 
 const (
-	// Secret referenced by ShareIntent could not be found.
-	SINotFound ShareIntentState = "Secret Not Found"
+	// Secret referenced by Intent could not be found.
+	INotFound IntentState = "Secret Not Found"
 	// Secret has been located.
-	SIReady ShareIntentState = "Ready"
+	IReady IntentState = "Ready"
 )
 
-// ShareIntentStatus defines the observed state of ShareIntent
-type ShareIntentStatus struct {
-	State ShareIntentState `json:"state"`
+// IntentStatus defines the observed state of Intent
+type IntentStatus struct {
+	State IntentState `json:"state"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// ShareIntent is the Schema for the shareintents API
-type ShareIntent struct {
+// Intent is the Schema for the Intents API
+type Intent struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ShareIntentSpec   `json:"spec,omitempty"`
-	Status ShareIntentStatus `json:"status,omitempty"`
+	Spec   IntentSpec   `json:"spec,omitempty"`
+	Status IntentStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
-// ShareIntentList contains a list of ShareIntent
-type ShareIntentList struct {
+// IntentList contains a list of Intent
+type IntentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ShareIntent `json:"items"`
+	Items           []Intent `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ShareIntent{}, &ShareIntentList{})
+	SchemeBuilder.Register(&Intent{}, &IntentList{})
 }

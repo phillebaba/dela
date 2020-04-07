@@ -13,7 +13,7 @@ Within Kubernetes, a Pod can only read a Secret that exists within the same Name
   <img src="./assets/overview.png">
 </p>
 
-Dela works by creating a ShareIntent in the source Namespace and a ShareRequest in the destination Namespace. The ShareIntent defines which Secret should be shared. The ShareRequest defines which ShareIntent to copy the secret from. The architecture allows a security model where a Secret can only be shared if explicitly indicated to be shared.
+Dela works by creating an Intent in the source Namespace and a Request in the destination Namespace. The Intent defines which Secret should be shared. The Request defines which Intent to copy the secret from. The architecture allows a security model where a Secret can only be shared if that explicitly the intent.
 
 ## Install
 Easiest way is to add a git reference in your `kustomization.yaml` file.
@@ -30,10 +30,10 @@ kustomize build config/default | kubectl apply -f -
 ```
 
 ## How to use
-First create a Secret and a ShareIntent that references the Secret in one Namespace. Note the `allowedNamespaces` field that indicates which Namespaces are allowed to create a request for the intent.
+First create a Secret and a Intent that references the Secret in one Namespace. Note the `allowedNamespaces` field that indicates which Namespaces are allowed to create a request for the intent.
 ```yaml
-apiVersion: share.phillebaba.io/v1alpha1
-kind: ShareIntent
+apiVersion: dela.phillebaba.io/v1alpha1
+kind: Intent
 metadata:
   name: main
   namespace: ns1
@@ -51,10 +51,10 @@ stringData:
   foo: bar
 ```
 
-Then create a ShareRequest that references the ShareIntent in another Namespace.
+Then create a Request that references the Intent in another Namespace.
 ```yaml
-apiVersion: share.phillebaba.io/v1alpha1
-kind: ShareRequest
+apiVersion: dela.phillebaba.io/v1alpha1
+kind: Request
 metadata:
   name: main
   namespace: ns2
