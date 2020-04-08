@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns3
+---
+apiVersion: dela.phillebaba.io/v1alpha1
+kind: Request
+metadata:
+  name: main
+  namespace: ns3
+spec:
+  intentRef:
+    name: main
+    namespace: ns1

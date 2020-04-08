@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns1
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: main
+  namespace: ns1
+stringData:
+  foo: bar
+---
+apiVersion: dela.phillebaba.io/v1alpha1
+kind: Intent
+metadata:
+  name: main
+  namespace: ns1
+spec:
+  secretRef: main
+  allowedNamespaces:
+  - ns2
