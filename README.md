@@ -30,7 +30,7 @@ kustomize build config/default | kubectl apply -f -
 ```
 
 ## How to use
-First create a Secret and a Intent that references the Secret in one Namespace. Note the `allowedNamespaces` field that indicates which Namespaces are allowed to create a request for the intent.
+First create a Secret and a Intent that references the Secret in one Namespace. Note the `namespaceWhitelist` field that indicates which Namespaces are whitelisted to create a request for the intent.
 ```yaml
 apiVersion: dela.phillebaba.io/v1alpha1
 kind: Intent
@@ -39,7 +39,7 @@ metadata:
   namespace: ns1
 spec:
   secretRef: main
-  allowedNamespaces:
+  namespaceWhitelist:
   - ns2
 ---
 apiVersion: v1

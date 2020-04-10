@@ -43,8 +43,8 @@ spec:
         spec:
           description: IntentSpec defines the desired state of Intent
           properties:
-            allowedNamespaces:
-              description: Namespaces that are allowed to access the Intent. Supports
+            namespaceWhitelist:
+              description: Namespaces that are whitelisted to access the Intent. Supports
                 either plain text or regex. Empty list means allowing all namespaces.
               items:
                 type: string

@@ -64,8 +64,8 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	// Check if Request from namespace is allowed
-	matches, err := matchesAllowedNamespace(request.Namespace, intent.Spec.AllowedNamespaces)
+	// Check if Request from namespace is whitelisted
+	matches, err := matchesNamespaceWhitelist(request.Namespace, intent.Spec.NamespaceWhitelist)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -186,14 +186,14 @@ func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// matchesAllowedNamespace checks if a given namespace matches the regex of any of the allowed namespaces
-func matchesAllowedNamespace(namespace string, allowedNamespaces []string) (bool, error) {
-	if len(allowedNamespaces) == 0 {
+// matchesNamespaceWhitelist checks if a given namespace matches the regex of any of the namespace whitelists
+func matchesNamespaceWhitelist(namespace string, namespaceWhitelist []string) (bool, error) {
+	if len(namespaceWhitelist) == 0 {
 		return true, nil
 	}
 
-	for _, allowedNamespace := range allowedNamespaces {
-		r, err := regexp.Compile(allowedNamespace)
+	for _, ns := range namespaceWhitelist {
+		r, err := regexp.Compile(ns)
 		if err != nil {
 			return false, err
 		}
