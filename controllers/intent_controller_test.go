@@ -13,15 +13,15 @@ import (
 	delav1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
 )
 
-var _ = Describe(" Intent Controller", func() {
+var _ = Describe("Intent Controller", func() {
 	const timeout = time.Second * 30
 	const interval = time.Second * 1
 
-	Context("New Cluster", func() {
-		ctx := context.TODO()
-		ns := SetupTestNamespace(ctx)
+	ctx := context.TODO()
+	ns := SetupTestNamespace(ctx)
 
-		It("Should update status", func() {
+	Context("New Cluster", func() {
+		It("Should update the Intent status", func() {
 			key := types.NamespacedName{
 				Name:      "main",
 				Namespace: ns.Name,
@@ -42,7 +42,7 @@ var _ = Describe(" Intent Controller", func() {
 				},
 			}
 
-			By("Expecting status to be Ready")
+			By("Creating a Secret and Intent")
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			Expect(k8sClient.Create(ctx, intent)).Should(Succeed())
 			Eventually(func() *delav1alpha1.Intent {
@@ -53,7 +53,7 @@ var _ = Describe(" Intent Controller", func() {
 				WithTransform(func(e *delav1alpha1.Intent) delav1alpha1.IntentState { return e.Status.State }, Equal(delav1alpha1.IReady)),
 			))
 
-			By("Expecting status to be Not Found")
+			By("Deleting the Secret")
 			Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
 			Eventually(func() *delav1alpha1.Intent {
 				intent = &delav1alpha1.Intent{}
@@ -63,7 +63,7 @@ var _ = Describe(" Intent Controller", func() {
 				WithTransform(func(e *delav1alpha1.Intent) delav1alpha1.IntentState { return e.Status.State }, Equal(delav1alpha1.INotFound)),
 			))
 
-			By("Expecting status to be Ready")
+			By("Re-creating the Secret")
 			secret.ObjectMeta.ResourceVersion = ""
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			Eventually(func() *delav1alpha1.Intent {

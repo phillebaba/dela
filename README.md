@@ -30,7 +30,7 @@ kustomize build config/default | kubectl apply -f -
 ```
 
 ## How to use
-First create a Secret and a Intent that references the Secret in one Namespace. Note the `allowedNamespaces` field that indicates which Namespaces are allowed to create a request for the intent.
+First create a Secret and a Intent that references the Secret in one Namespace. Note the `namespaceWhitelist` field that indicates which Namespaces are whitelisted to create a request for the intent.
 ```yaml
 apiVersion: dela.phillebaba.io/v1alpha1
 kind: Intent
@@ -39,7 +39,7 @@ metadata:
   namespace: ns1
 spec:
   secretRef: main
-  allowedNamespaces:
+  namespaceWhitelist:
   - ns2
 ---
 apiVersion: v1
@@ -74,6 +74,15 @@ metadata:
 stringData:
   foo: bar
 ```
+
+## FAQ
+**Will my Secret copy be deleted if I delete the Intent or source Secret?**
+No. It could cause problems with Pods that depend on the Secret. Additionally the cat is already out of the bag so deleting the Secret would not make anything more secure. If a Secret was accidentally shared it should rather be rotated.
+
+**Will my Secret copy be deleted if the namespace whitelist changes?**
+No. See the previous answer for the reason why. The one caveat is that the Secret copy will not be updated if the source Secret changes.
+
+**Can I change the Secret referenced by an Intent?**
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
