@@ -24,7 +24,7 @@ var _ = Describe("Request Controller", func() {
 	Context("New Cluster", func() {
 		It("Creates a copy of a Secret", func() {
 			secret, intent, request := baseResources(source, dest)
-			intent.Spec.AllowedNamespaces = []string{dest.Name}
+			intent.Spec.NamespaceWhitelist = []string{dest.Name}
 
 			By("Creating a Secret, Intent and Request")
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
@@ -102,7 +102,7 @@ var _ = Describe("Request Controller", func() {
 
 		It("Does not copy Secrets to Namespaces that are not whitelisted", func() {
 			secret, intent, request := baseResources(source, dest)
-			intent.Spec.AllowedNamespaces = []string{dest.Name + "-extra"}
+			intent.Spec.NamespaceWhitelist = []string{dest.Name + "-extra"}
 
 			By("Creating an Intent and Secret")
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
