@@ -13,46 +13,20 @@ import (
 	delav1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
 )
 
-var _ = Describe(" Request Controller", func() {
+var _ = Describe("Request Controller", func() {
 	const timeout = time.Second * 30
 	const interval = time.Second * 1
 
+	ctx := context.TODO()
+	source := SetupTestNamespace(ctx)
+	dest := SetupTestNamespace(ctx)
+
 	Context("New Cluster", func() {
-		ctx := context.TODO()
-		source := SetupTestNamespace(ctx)
-		dest := SetupTestNamespace(ctx)
+		It("Creates a copy of a Secret", func() {
+			secret, intent, request := baseResources(source, dest)
+			intent.Spec.AllowedNamespaces = []string{dest.Name}
 
-		It("Should create a copy resource", func() {
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "main",
-					Namespace: source.Name,
-				},
-				Data: map[string][]byte{"foo": []byte("bar")},
-			}
-			intent := &delav1alpha1.Intent{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "main",
-					Namespace: source.Name,
-				},
-				Spec: delav1alpha1.IntentSpec{
-					SecretReference: secret.Name,
-				},
-			}
-			request := &delav1alpha1.Request{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "main",
-					Namespace: dest.Name,
-				},
-				Spec: delav1alpha1.RequestSpec{
-					IntentReference: delav1alpha1.IntentReference{
-						Name:      intent.Name,
-						Namespace: intent.Namespace,
-					},
-				},
-			}
-
-			By("Expecting secret to be copied")
+			By("Creating a Secret, Intent and Request")
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			Expect(k8sClient.Create(ctx, intent)).Should(Succeed())
 			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
@@ -69,11 +43,11 @@ var _ = Describe(" Request Controller", func() {
 				sr := &delav1alpha1.Request{}
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, sr)
 				return sr
-			}, timeout, interval).Should(SatisfyAll(
+			}, timeout, interval).Should(
 				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RReady)),
-			))
+			)
 
-			By("Expecting copied secret to be updated")
+			By("Updating the Secret data")
 			secret.Data["foo"] = []byte("baz")
 			Expect(k8sClient.Update(ctx, secret)).Should(Succeed())
 			Eventually(func() *corev1.Secret {
@@ -86,14 +60,122 @@ var _ = Describe(" Request Controller", func() {
 				WithTransform(func(e *corev1.Secret) []byte { return e.Data["foo"] }, Equal(secret.Data["foo"])),
 			))
 		})
+
+		It("Triggers an update of a Request from an Intent", func() {
+			_, intent, request := baseResources(source, dest)
+
+			By("Creating a Request")
+			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
+			Eventually(func() *delav1alpha1.Request {
+				r := &delav1alpha1.Request{}
+				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
+				return r
+			}, timeout, interval).Should(
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RNotFound)),
+			)
+
+			By("Creating an Intent")
+			Expect(k8sClient.Create(ctx, intent)).Should(Succeed())
+			Eventually(func() *delav1alpha1.Request {
+				r := &delav1alpha1.Request{}
+				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
+				return r
+			}, timeout, interval).Should(
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RIntentError)),
+			)
+		})
+
+		It("Handles missing Secret for Intent", func() {
+			_, intent, request := baseResources(source, dest)
+
+			By("Creating a Intent and a Request")
+			Expect(k8sClient.Create(ctx, intent)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
+			Eventually(func() *delav1alpha1.Request {
+				r := &delav1alpha1.Request{}
+				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
+				return r
+			}, timeout, interval).Should(
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RIntentError)),
+			)
+		})
+
+		It("Does not copy Secrets to Namespaces that are not whitelisted", func() {
+			secret, intent, request := baseResources(source, dest)
+			intent.Spec.AllowedNamespaces = []string{dest.Name + "-extra"}
+
+			By("Creating an Intent and Secret")
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, intent)).Should(Succeed())
+
+			By("Creating a Request in a non whitespaced Namespace")
+			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
+			Eventually(func() *delav1alpha1.Request {
+				r := &delav1alpha1.Request{}
+				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
+				return r
+			}, timeout, interval).Should(
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RNotAllowed)),
+			)
+		})
+
+		It("Does not delete copied Secret when the Intent is deleted", func() {
+			secret, intent, request := baseResources(source, dest)
+
+			By("Creating an Intent, Secret, and Request")
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, intent)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
+			Eventually(func() error {
+				secretCopy := &corev1.Secret{}
+				return k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
+			}).Should(Succeed())
+
+			By("Deleting the Intent")
+			Expect(k8sClient.Delete(ctx, intent)).Should(Succeed())
+			Eventually(func() *delav1alpha1.Request {
+				r := &delav1alpha1.Request{}
+				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
+				return r
+			}, timeout, interval).Should(
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RNotFound)),
+			)
+			Eventually(func() error {
+				secretCopy := &corev1.Secret{}
+				return k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
+			}).Should(Succeed())
+		})
+
+		It("Does not delete copied Secret when the source Secret is deleted", func() {
+			secret, intent, request := baseResources(source, dest)
+
+			By("Creating an Intent, Secret, and Request")
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, intent)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
+			Eventually(func() error {
+				secretCopy := &corev1.Secret{}
+				return k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
+			}).Should(Succeed())
+
+			By("Deleting the Secret")
+			Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
+			Eventually(func() *delav1alpha1.Request {
+				r := &delav1alpha1.Request{}
+				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
+				return r
+			}, timeout, interval).Should(
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RIntentError)),
+			)
+			Eventually(func() error {
+				secretCopy := &corev1.Secret{}
+				return k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
+			}).Should(Succeed())
+		})
 	})
 
 	Context("Cluster with existing secret", func() {
-		ctx := context.TODO()
-		source := SetupTestNamespace(ctx)
-		dest := SetupTestNamespace(ctx)
-
-		It("Should update status", func() {
+		BeforeEach(func() {
 			existSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "main",
@@ -101,36 +183,12 @@ var _ = Describe(" Request Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, existSecret)).Should(Succeed())
+		})
 
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      existSecret.Name,
-					Namespace: source.Name,
-				},
-			}
-			intent := &delav1alpha1.Intent{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "main",
-					Namespace: source.Name,
-				},
-				Spec: delav1alpha1.IntentSpec{
-					SecretReference: secret.Name,
-				},
-			}
-			request := &delav1alpha1.Request{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "main",
-					Namespace: dest.Name,
-				},
-				Spec: delav1alpha1.RequestSpec{
-					IntentReference: delav1alpha1.IntentReference{
-						Name:      intent.Name,
-						Namespace: intent.Namespace,
-					},
-				},
-			}
+		It("Detects the conflicting destination Secret", func() {
+			secret, intent, request := baseResources(source, dest)
 
-			By("Expecting Secret conflict")
+			By("Creating a source Secret, Intent, and Request")
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			Expect(k8sClient.Create(ctx, intent)).Should(Succeed())
 			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
@@ -142,7 +200,7 @@ var _ = Describe(" Request Controller", func() {
 				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RAlreadyExists)),
 			))
 
-			By("Expecting Intent to not be found")
+			By("Deleting conflicting destination Secret")
 			Expect(k8sClient.Delete(ctx, intent)).Should(Succeed())
 			Eventually(func() *delav1alpha1.Request {
 				sr := &delav1alpha1.Request{}
@@ -154,3 +212,39 @@ var _ = Describe(" Request Controller", func() {
 		})
 	})
 })
+
+// Creates a base Secret, Intent, and Request for tests.
+func baseResources(source *corev1.Namespace, dest *corev1.Namespace) (*corev1.Secret, *delav1alpha1.Intent, *delav1alpha1.Request) {
+	name := "main"
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: source.Name,
+		},
+		Data: map[string][]byte{"foo": []byte("bar")},
+	}
+	intent := &delav1alpha1.Intent{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: source.Name,
+		},
+		Spec: delav1alpha1.IntentSpec{
+			SecretReference: secret.Name,
+		},
+	}
+	request := &delav1alpha1.Request{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: dest.Name,
+		},
+		Spec: delav1alpha1.RequestSpec{
+			IntentReference: delav1alpha1.IntentReference{
+				Name:      intent.Name,
+				Namespace: intent.Namespace,
+			},
+		},
+	}
+
+	return secret, intent, request
+}

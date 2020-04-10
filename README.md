@@ -75,5 +75,14 @@ stringData:
   foo: bar
 ```
 
+## FAQ
+**Will my Secret copy be deleted if I delete the Intent or source Secret?**
+No. It could cause problems with Pods that depend on the Secret. Additionally the cat is already out of the bag so deleting the Secret would not make anything more secure. If a Secret was accidentally shared it should rather be rotated.
+
+**Will my Secret copy be deleted if the namespace whitelist changes?**
+No. See the previous answer for the reason why. The one caveat is that the Secret copy will not be updated if the source Secret changes.
+
+**Can I change the Secret referenced by an Intent?**
+
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

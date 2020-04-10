@@ -2,9 +2,7 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"regexp"
-	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -36,14 +34,16 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("request", req.NamespacedName)
 
+	// Get reconciled Request
 	request := &delav1alpha1.Request{}
 	if err := r.Get(ctx, req.NamespacedName, request); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Function to update the Status before return
 	defer func() {
 		if err := r.Status().Update(ctx, request); err != nil {
-			log.Error(err, "Could not update Request status")
+			log.Error(err, "Could not update Request status", "status", request.Status)
 		}
 	}()
 
@@ -53,10 +53,15 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err := r.Get(ctx, intentNN, intent); err != nil {
 		if apierrors.IsNotFound(err) {
 			request.Status.State = delav1alpha1.RNotFound
+			log.Error(err, "Could not find Intent", "Request", req.NamespacedName, "Intent", intentNN)
+			return ctrl.Result{}, nil
 		}
 
-		log.Error(err, "Could not get Intent referenced Request", "Request", req.NamespacedName, "Intent", intentNN)
 		return ctrl.Result{}, err
+	}
+	if intent.Status.State != delav1alpha1.IReady {
+		request.Status.State = delav1alpha1.RIntentError
+		return ctrl.Result{}, nil
 	}
 
 	// Check if Request from namespace is allowed
@@ -64,10 +69,10 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 	if matches == false {
-		log.Info("Intent does not allow Request from the current namespace", "Namespace", req.Namespace, "Intent", intentNN, "Request", req.NamespacedName)
-		return ctrl.Result{Requeue: true, RequeueAfter: time.Minute * 1}, nil
+		log.Info("Intent does not allow Request from the namespace", "Namespace", req.Namespace, "Intent", intentNN, "Request", req.NamespacedName)
+		request.Status.State = delav1alpha1.RNotAllowed
+		return ctrl.Result{}, nil
 	}
 
 	// Make sure Secret destination does not already exist
@@ -81,7 +86,7 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if owner == nil || owner.Kind != "Request" && owner.Name != request.Name {
 			request.Status.State = delav1alpha1.RAlreadyExists
 			log.Info("Destination Secret already exists", "Secret", existSecret.Name)
-			return ctrl.Result{}, errors.New("Secret already exists")
+			return ctrl.Result{}, nil
 		}
 	}
 
@@ -95,31 +100,30 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// Create copy of Intents Secret
 	secretCopy := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secret.Name, Namespace: req.Namespace}}
-	_, err = ctrl.CreateOrUpdate(ctx, r, secretCopy, func() error {
+	if _, err := ctrl.CreateOrUpdate(ctx, r, secretCopy, func() error {
 		secretCopy.Annotations = map[string]string{}
 		secretCopy.Annotations["phillebaba.io/generated-from"] = request.Namespace + "/" + request.Name
 		secretCopy.Data = secret.Data
-		return controllerutil.SetControllerReference(request, secretCopy, r.Scheme)
-	})
-
-	if err != nil {
+		err := controllerutil.SetControllerReference(request, secretCopy, r.Scheme)
+		return err
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	request.Status.State = delav1alpha1.RReady
 	r.Log.Info("Created or Updated Secret", "Secret", secret.Namespace+"/"+secret.Name)
+	request.Status.State = delav1alpha1.RReady
 	return ctrl.Result{}, nil
 }
 
 func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(&delav1alpha1.Request{}, ".metadata.intentRef", func(rawObj runtime.Object) []string {
 		request := rawObj.(*delav1alpha1.Request)
-		return []string{request.Spec.IntentReference.Name + "/" + request.Spec.IntentReference.Namespace}
+		return []string{request.Spec.IntentReference.Namespace + "/" + request.Spec.IntentReference.Name}
 	}); err != nil {
 		return err
 	}
 
-	mapFn := handler.ToRequestsFunc(
+	secretMapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			ctx := context.Background()
 
@@ -131,7 +135,7 @@ func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			reconcileReq := []reconcile.Request{}
 			for _, intent := range intents.Items {
 				var requests delav1alpha1.RequestList
-				if err := r.List(ctx, &requests, client.MatchingField(".metadata.intentRef", intent.Name+"/"+intent.Namespace)); err != nil {
+				if err := r.List(ctx, &requests, client.MatchingField(".metadata.intentRef", intent.Namespace+"/"+intent.Name)); err != nil {
 					return []reconcile.Request{}
 				}
 
@@ -147,12 +151,37 @@ func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	)
 
+	intentMapFn := handler.ToRequestsFunc(
+		func(a handler.MapObject) []reconcile.Request {
+			ctx := context.Background()
+
+			var requests delav1alpha1.RequestList
+			if err := r.List(ctx, &requests, client.MatchingField(".metadata.intentRef", a.Meta.GetNamespace()+"/"+a.Meta.GetName())); err != nil {
+				return []reconcile.Request{}
+			}
+
+			reconcileReq := []reconcile.Request{}
+			for _, request := range requests.Items {
+				reconcileReq = append(reconcileReq, reconcile.Request{NamespacedName: types.NamespacedName{
+					Name:      request.Name,
+					Namespace: request.Namespace,
+				}})
+			}
+
+			return reconcileReq
+		},
+	)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&delav1alpha1.Request{}).
 		Owns(&corev1.Secret{}).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: mapFn},
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: secretMapFn},
+		).
+		Watches(
+			&source.Kind{Type: &delav1alpha1.Intent{}},
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: intentMapFn},
 		).
 		Complete(r)
 }

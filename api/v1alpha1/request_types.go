@@ -27,6 +27,10 @@ const (
 	RAlreadyExists RequestState = "Secret Already Exists"
 	// Could not find Intent referenced by Request.
 	RNotFound RequestState = "Intent Not Found"
+	// Referenced Intent is not ready
+	RIntentError RequestState = "Intent not ready"
+	// Request is not allowed from the Namespace
+	RNotAllowed RequestState = "Request not allowed from Namespace"
 	// Request fulfilled, meaning Secret is present.
 	RReady RequestState = "Ready"
 )
