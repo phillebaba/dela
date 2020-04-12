@@ -172,6 +172,24 @@ var _ = Describe("Request Controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
 			}).Should(Succeed())
 		})
+
+		It("Allows metadata override of the Secret copy", func() {
+			secret, intent, request := baseResources(source, dest)
+			request.Spec.SecretConfig.ObjectMeta = &metav1.ObjectMeta{
+				Name:        "override",
+				Labels:      map[string]string{"foo": "bar"},
+				Annotations: map[string]string{"foo": "bar"},
+			}
+
+			By("Creating an Intent, Secret, and Request")
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, intent)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
+			Eventually(func() error {
+				secretCopy := &corev1.Secret{}
+				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretConfig.ObjectMeta.Name, Namespace: dest.Name}, secretCopy)
+			}).Should(Succeed())
+		})
 	})
 
 	Context("Cluster with existing secret", func() {
@@ -239,7 +257,7 @@ func baseResources(source *corev1.Namespace, dest *corev1.Namespace) (*corev1.Se
 			Namespace: dest.Name,
 		},
 		Spec: delav1alpha1.RequestSpec{
-			IntentReference: delav1alpha1.IntentReference{
+			IntentRef: delav1alpha1.IntentReference{
 				Name:      intent.Name,
 				Namespace: intent.Namespace,
 			},

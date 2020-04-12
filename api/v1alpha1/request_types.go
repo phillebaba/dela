@@ -4,19 +4,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// IntentReference contains the name and namespace of an Intent.
 type IntentReference struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
 }
 
+type SecretConfiguration struct {
+	// If true will append suffix to end of Secret.
+	AppendSuffix bool `json:"suffix"`
+	// Overrides ObjectMeta of the Secret copy.
+	ObjectMeta *metav1.ObjectMeta `json:"metadata,omitempty"`
+}
+
 // RequestSpec defines the desired state of Request
 type RequestSpec struct {
+	SecretConfig SecretConfiguration `json:"config"`
 	// Refernce to intent to copy Secret from
-	IntentReference IntentReference `json:"intentRef"`
-	// If secret should be updated on change
-	UpdateOnChange bool `json:"updateOnChange,omitempty"`
-	// If hash should be appened to end of secret
-	AppendHash bool `json:"appendHash,omitempty"`
+	IntentRef IntentReference `json:"intentRef"`
 }
 
 // RequestState represents the current state of a Request.

@@ -82,7 +82,11 @@ No. It could cause problems with Pods that depend on the Secret. Additionally th
 **Will my Secret copy be deleted if the namespace whitelist changes?**
 No. See the previous answer for the reason why. The one caveat is that the Secret copy will not be updated if the source Secret changes.
 
-**Can I change the Secret referenced by an Intent?**
+**Can I change the name of the Secret?**
+Yes. All of the metadata of the copied Secret can be set in the Request.
+
+**Will my copied Secret inheret metadata?**
+No. The only thing that is acutally copied is the Secret data, the rest is not inherited.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

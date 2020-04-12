@@ -43,9 +43,17 @@ spec:
         spec:
           description: RequestSpec defines the desired state of Request
           properties:
-            appendHash:
-              description: If hash should be appened to end of secret
-              type: boolean
+            config:
+              properties:
+                metadata:
+                  description: Overrides ObjectMeta of the Secret copy.
+                  type: object
+                suffix:
+                  description: If true will append suffix to end of Secret.
+                  type: boolean
+              required:
+              - suffix
+              type: object
             intentRef:
               description: Refernce to intent to copy Secret from
               properties:
@@ -57,10 +65,8 @@ spec:
               - name
               - namespace
               type: object
-            updateOnChange:
-              description: If secret should be updated on change
-              type: boolean
           required:
+          - config
           - intentRef
           type: object
         status:

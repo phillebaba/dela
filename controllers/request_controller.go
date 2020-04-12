@@ -48,7 +48,7 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}()
 
 	// Get Intent for Request
-	intentNN := types.NamespacedName{Name: request.Spec.IntentReference.Name, Namespace: request.Spec.IntentReference.Namespace}
+	intentNN := types.NamespacedName{Name: request.Spec.IntentRef.Name, Namespace: request.Spec.IntentRef.Namespace}
 	intent := &delav1alpha1.Intent{}
 	if err := r.Get(ctx, intentNN, intent); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -99,10 +99,16 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// Create copy of Intents Secret
-	secretCopy := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secret.Name, Namespace: req.Namespace}}
+	var secretObjectMeta metav1.ObjectMeta
+	if request.Spec.SecretConfig.ObjectMeta != nil {
+		secretObjectMeta = *request.Spec.SecretConfig.ObjectMeta.DeepCopy()
+		secretObjectMeta.Namespace = request.Namespace
+	} else {
+		secretObjectMeta = metav1.ObjectMeta{Name: secret.Name, Namespace: request.Namespace}
+	}
+
+	secretCopy := &corev1.Secret{ObjectMeta: secretObjectMeta}
 	if _, err := ctrl.CreateOrUpdate(ctx, r, secretCopy, func() error {
-		secretCopy.Annotations = map[string]string{}
-		secretCopy.Annotations["phillebaba.io/generated-from"] = request.Namespace + "/" + request.Name
 		secretCopy.Data = secret.Data
 		err := controllerutil.SetControllerReference(request, secretCopy, r.Scheme)
 		return err
@@ -118,7 +124,7 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(&delav1alpha1.Request{}, ".metadata.intentRef", func(rawObj runtime.Object) []string {
 		request := rawObj.(*delav1alpha1.Request)
-		return []string{request.Spec.IntentReference.Namespace + "/" + request.Spec.IntentReference.Name}
+		return []string{request.Spec.IntentRef.Namespace + "/" + request.Spec.IntentRef.Name}
 	}); err != nil {
 		return err
 	}
