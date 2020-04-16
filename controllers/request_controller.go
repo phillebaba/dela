@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -24,13 +25,15 @@ import (
 // RequestReconciler reconciles a Request object
 type RequestReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log      logr.Logger
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=delete.phillebaba.io,resources=requests,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=dela.phillebaba.io,resources=requests/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("request", req.NamespacedName)
@@ -44,7 +47,7 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// Function to update the Status before return
 	defer func() {
 		if err := r.Status().Update(ctx, request); err != nil {
-			log.Error(err, "Could not update Request status", "status", request.Status)
+			log.Error(err, "Could not update status")
 		}
 	}()
 
@@ -54,14 +57,14 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err := r.Get(ctx, intentNN, intent); err != nil {
 		if apierrors.IsNotFound(err) {
 			request.Status.State = delav1alpha1.RequestStateError
-			log.Error(err, "Could not find Intent", "Request", req.NamespacedName, "Intent", intentNN)
+			r.Recorder.Event(request, corev1.EventTypeNormal, "MissingIntent", "Could not find referenced Intent")
 			return ctrl.Result{}, nil
 		}
-
 		return ctrl.Result{}, err
 	}
 	if intent.Status.State != delav1alpha1.IntentStateReady {
 		request.Status.State = delav1alpha1.RequestStateError
+		r.Recorder.Event(request, corev1.EventTypeNormal, "IntentNotReady", "Intent not in ready state")
 		return ctrl.Result{}, nil
 	}
 
@@ -71,8 +74,8 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 	if matches == false {
-		log.Info("Intent does not allow Request from the namespace", "Namespace", req.Namespace, "Intent", intentNN, "Request", req.NamespacedName)
 		request.Status.State = delav1alpha1.RequestStateError
+		r.Recorder.Event(request, corev1.EventTypeNormal, "Forbidden", "Intent does not allow request from namespace")
 		return ctrl.Result{}, nil
 	}
 
@@ -86,7 +89,7 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		owner := metav1.GetControllerOf(existSecret)
 		if owner == nil || owner.Kind != "Request" && owner.Name != request.Name {
 			request.Status.State = delav1alpha1.RequestStateError
-			log.Info("Destination Secret already exists", "Secret", existSecret.Name)
+			r.Recorder.Eventf(request, corev1.EventTypeNormal, "SecretExists", "Destination Secret already exists %q", intent.Spec.SecretReference)
 			return ctrl.Result{}, errors.New("Destination alreay exists")
 		}
 	}
@@ -95,7 +98,6 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	secretNN := types.NamespacedName{Name: intent.Spec.SecretReference, Namespace: intentNN.Namespace}
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, secretNN, secret); err != nil {
-		log.Error(err, "Could not get Intents referenced Secret", "Intent", intentNN, "Secret", secretNN)
 		return ctrl.Result{}, err
 	}
 
@@ -109,15 +111,20 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	secretCopy := &corev1.Secret{ObjectMeta: secretObjectMeta}
-	if _, err := ctrl.CreateOrUpdate(ctx, r, secretCopy, func() error {
+	result, err := ctrl.CreateOrUpdate(ctx, r, secretCopy, func() error {
 		secretCopy.Data = secret.Data
 		err := controllerutil.SetControllerReference(request, secretCopy, r.Scheme)
 		return err
-	}); err != nil {
+	})
+	if err != nil {
 		return ctrl.Result{}, err
 	}
+	if result == controllerutil.OperationResultCreated {
+		r.Recorder.Eventf(request, corev1.EventTypeNormal, "Created", "Created Secret %q", secretCopy.Name)
+	} else {
+		r.Recorder.Eventf(request, corev1.EventTypeNormal, "Updated", "Updated Secret %q", secretCopy.Name)
+	}
 
-	r.Log.Info("Created or Updated Secret", "Secret", secret.Namespace+"/"+secret.Name)
 	request.Status.State = delav1alpha1.RequestStateReady
 	return ctrl.Result{}, nil
 }

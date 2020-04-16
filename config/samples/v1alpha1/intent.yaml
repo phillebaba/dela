@@ -1,0 +1,6 @@
+apiVersion: dela.phillebaba.io/v1alpha1
+kind: Intent
+metadata:
+  name: main
+spec:
+  secretRef: main
