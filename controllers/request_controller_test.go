@@ -44,7 +44,7 @@ var _ = Describe("Request Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, sr)
 				return sr
 			}, timeout, interval).Should(
-				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RReady)),
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RequestStateReady)),
 			)
 
 			By("Updating the Secret data")
@@ -62,16 +62,17 @@ var _ = Describe("Request Controller", func() {
 		})
 
 		It("Triggers an update of a Request from an Intent", func() {
-			_, intent, request := baseResources(source, dest)
+			secret, intent, request := baseResources(source, dest)
 
-			By("Creating a Request")
+			By("Creating a Request and Secret")
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
 			Eventually(func() *delav1alpha1.Request {
 				r := &delav1alpha1.Request{}
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
 				return r
 			}, timeout, interval).Should(
-				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RNotFound)),
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RequestStateError)),
 			)
 
 			By("Creating an Intent")
@@ -81,7 +82,7 @@ var _ = Describe("Request Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
 				return r
 			}, timeout, interval).Should(
-				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RIntentError)),
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RequestStateReady)),
 			)
 		})
 
@@ -96,7 +97,7 @@ var _ = Describe("Request Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
 				return r
 			}, timeout, interval).Should(
-				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RIntentError)),
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RequestStateError)),
 			)
 		})
 
@@ -115,7 +116,7 @@ var _ = Describe("Request Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
 				return r
 			}, timeout, interval).Should(
-				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RNotAllowed)),
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RequestStateError)),
 			)
 		})
 
@@ -138,7 +139,7 @@ var _ = Describe("Request Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
 				return r
 			}, timeout, interval).Should(
-				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RNotFound)),
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RequestStateError)),
 			)
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
@@ -165,7 +166,7 @@ var _ = Describe("Request Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, r)
 				return r
 			}, timeout, interval).Should(
-				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RIntentError)),
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RequestStateError)),
 			)
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
@@ -193,8 +194,9 @@ var _ = Describe("Request Controller", func() {
 	})
 
 	Context("Cluster with existing secret", func() {
+		var existSecret *corev1.Secret
 		BeforeEach(func() {
-			existSecret := &corev1.Secret{
+			existSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "main",
 					Namespace: dest.Name,
@@ -215,17 +217,17 @@ var _ = Describe("Request Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, sr)
 				return sr
 			}, timeout, interval).Should(SatisfyAll(
-				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RAlreadyExists)),
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RequestStateError)),
 			))
 
 			By("Deleting conflicting destination Secret")
-			Expect(k8sClient.Delete(ctx, intent)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, existSecret)).Should(Succeed())
 			Eventually(func() *delav1alpha1.Request {
 				sr := &delav1alpha1.Request{}
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, sr)
 				return sr
 			}, timeout, interval).Should(SatisfyAll(
-				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RNotFound)),
+				WithTransform(func(e *delav1alpha1.Request) delav1alpha1.RequestState { return e.Status.State }, Equal(delav1alpha1.RequestStateReady)),
 			))
 		})
 	})

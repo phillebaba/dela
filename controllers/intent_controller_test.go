@@ -50,7 +50,7 @@ var _ = Describe("Intent Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: key.Name, Namespace: key.Namespace}, intent)
 				return intent
 			}, timeout, interval).Should(SatisfyAll(
-				WithTransform(func(e *delav1alpha1.Intent) delav1alpha1.IntentState { return e.Status.State }, Equal(delav1alpha1.IReady)),
+				WithTransform(func(e *delav1alpha1.Intent) delav1alpha1.IntentState { return e.Status.State }, Equal(delav1alpha1.IntentStateReady)),
 			))
 
 			By("Deleting the Secret")
@@ -60,7 +60,7 @@ var _ = Describe("Intent Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: key.Name, Namespace: key.Namespace}, intent)
 				return intent
 			}, timeout, interval).Should(SatisfyAll(
-				WithTransform(func(e *delav1alpha1.Intent) delav1alpha1.IntentState { return e.Status.State }, Equal(delav1alpha1.INotFound)),
+				WithTransform(func(e *delav1alpha1.Intent) delav1alpha1.IntentState { return e.Status.State }, Equal(delav1alpha1.IntentStateError)),
 			))
 
 			By("Re-creating the Secret")
@@ -71,7 +71,7 @@ var _ = Describe("Intent Controller", func() {
 				_ = k8sClient.Get(ctx, types.NamespacedName{Name: key.Name, Namespace: key.Namespace}, intent)
 				return intent
 			}, timeout, interval).Should(SatisfyAll(
-				WithTransform(func(e *delav1alpha1.Intent) delav1alpha1.IntentState { return e.Status.State }, Equal(delav1alpha1.IReady)),
+				WithTransform(func(e *delav1alpha1.Intent) delav1alpha1.IntentState { return e.Status.State }, Equal(delav1alpha1.IntentStateError)),
 			))
 		})
 	})

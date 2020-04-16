@@ -18,10 +18,10 @@ type IntentSpec struct {
 type IntentState string
 
 const (
-	// Secret referenced by Intent could not be found.
-	INotFound IntentState = "Secret Not Found"
+	// Error when locating referenced Secert.
+	IntentStateError IntentState = "Error"
 	// Secret has been located.
-	IReady IntentState = "Ready"
+	IntentStateReady IntentState = "Ready"
 )
 
 // IntentStatus defines the observed state of Intent
