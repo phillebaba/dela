@@ -44,12 +44,11 @@ func (r *IntentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: intent.Spec.SecretReference, Namespace: intent.Namespace}, secret); err != nil {
 		log.Error(err, "Could not get Secret refered by Intent", "Intent", intent.Name, "Secret", intent.Spec.SecretReference)
-		intent.Status.State = delav1alpha1.INotFound
+		intent.Status.State = delav1alpha1.IntentStateError
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	intent.Status.State = delav1alpha1.IReady
-
+	intent.Status.State = delav1alpha1.IntentStateReady
 	return ctrl.Result{}, nil
 }
 

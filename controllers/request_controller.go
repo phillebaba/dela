@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"regexp"
 
 	"github.com/go-logr/logr"
@@ -52,15 +53,15 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	intent := &delav1alpha1.Intent{}
 	if err := r.Get(ctx, intentNN, intent); err != nil {
 		if apierrors.IsNotFound(err) {
-			request.Status.State = delav1alpha1.RNotFound
+			request.Status.State = delav1alpha1.RequestStateError
 			log.Error(err, "Could not find Intent", "Request", req.NamespacedName, "Intent", intentNN)
 			return ctrl.Result{}, nil
 		}
 
 		return ctrl.Result{}, err
 	}
-	if intent.Status.State != delav1alpha1.IReady {
-		request.Status.State = delav1alpha1.RIntentError
+	if intent.Status.State != delav1alpha1.IntentStateReady {
+		request.Status.State = delav1alpha1.RequestStateError
 		return ctrl.Result{}, nil
 	}
 
@@ -71,7 +72,7 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 	if matches == false {
 		log.Info("Intent does not allow Request from the namespace", "Namespace", req.Namespace, "Intent", intentNN, "Request", req.NamespacedName)
-		request.Status.State = delav1alpha1.RNotAllowed
+		request.Status.State = delav1alpha1.RequestStateError
 		return ctrl.Result{}, nil
 	}
 
@@ -84,9 +85,9 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err == nil && existSecret != nil {
 		owner := metav1.GetControllerOf(existSecret)
 		if owner == nil || owner.Kind != "Request" && owner.Name != request.Name {
-			request.Status.State = delav1alpha1.RAlreadyExists
+			request.Status.State = delav1alpha1.RequestStateError
 			log.Info("Destination Secret already exists", "Secret", existSecret.Name)
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, errors.New("Destination alreay exists")
 		}
 	}
 
@@ -117,7 +118,7 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	r.Log.Info("Created or Updated Secret", "Secret", secret.Namespace+"/"+secret.Name)
-	request.Status.State = delav1alpha1.RReady
+	request.Status.State = delav1alpha1.RequestStateReady
 	return ctrl.Result{}, nil
 }
 

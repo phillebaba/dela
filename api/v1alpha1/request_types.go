@@ -28,16 +28,10 @@ type RequestSpec struct {
 type RequestState string
 
 const (
-	// Secret destination already exists.
-	RAlreadyExists RequestState = "Secret Already Exists"
-	// Could not find Intent referenced by Request.
-	RNotFound RequestState = "Intent Not Found"
-	// Referenced Intent is not ready
-	RIntentError RequestState = "Intent not ready"
-	// Request is not allowed from the Namespace
-	RNotAllowed RequestState = "Request not allowed from Namespace"
-	// Request fulfilled, meaning Secret is present.
-	RReady RequestState = "Ready"
+	// Error has occured when copying the Secret.
+	RequestStateError RequestState = "Error"
+	// Request fulfilled and the Secret has been copied.
+	RequestStateReady RequestState = "Ready"
 )
 
 // RequestStatus defines the observed state of Request
