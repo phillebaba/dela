@@ -22,6 +22,11 @@ import (
 	delav1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
 )
 
+var (
+	jobOwnerKey = ".metadata.controller"
+	apiGVStr    = delav1alpha1.GroupVersion.String()
+)
+
 // RequestReconciler reconciles a Request object
 type RequestReconciler struct {
 	client.Client
@@ -51,6 +56,22 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}()
 
+	// Make sure Secret destination does not already exist
+	existSecret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, existSecret)
+	if client.IgnoreNotFound(err) != nil {
+		request.Status.State = delav1alpha1.RequestStateError
+		return ctrl.Result{}, err
+	}
+	if err == nil && existSecret != nil {
+		owner := metav1.GetControllerOf(existSecret)
+		if owner == nil || owner.Kind != "Request" && owner.Name != request.Name {
+			request.Status.State = delav1alpha1.RequestStateError
+			r.Recorder.Event(request, corev1.EventTypeNormal, "SecretExists", "Destination Secret already exists")
+			return ctrl.Result{}, errors.New("Destination alreay exists")
+		}
+	}
+
 	// Get Intent for Request
 	intentNN := types.NamespacedName{Name: request.Spec.IntentRef.Name, Namespace: request.Spec.IntentRef.Namespace}
 	intent := &delav1alpha1.Intent{}
@@ -71,6 +92,7 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// Check if Request from namespace is whitelisted
 	matches, err := matchesNamespaceWhitelist(request.Namespace, intent.Spec.NamespaceWhitelist)
 	if err != nil {
+		request.Status.State = delav1alpha1.RequestStateError
 		return ctrl.Result{}, err
 	}
 	if matches == false {
@@ -79,57 +101,66 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	// Make sure Secret destination does not already exist
-	existSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{Name: intent.Spec.SecretReference, Namespace: req.Namespace}, existSecret)
-	if client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
-	}
-	if err == nil && existSecret != nil {
-		owner := metav1.GetControllerOf(existSecret)
-		if owner == nil || owner.Kind != "Request" && owner.Name != request.Name {
-			request.Status.State = delav1alpha1.RequestStateError
-			r.Recorder.Eventf(request, corev1.EventTypeNormal, "SecretExists", "Destination Secret already exists %q", intent.Spec.SecretReference)
-			return ctrl.Result{}, errors.New("Destination alreay exists")
-		}
-	}
-
-	// Get Secret for Intent
-	secretNN := types.NamespacedName{Name: intent.Spec.SecretReference, Namespace: intentNN.Namespace}
+	// Get Secret referenced by Intent
+	secretNN := types.NamespacedName{Name: intent.Spec.SecretReference, Namespace: intent.Namespace}
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, secretNN, secret); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// Create copy of Intents Secret
-	var secretObjectMeta metav1.ObjectMeta
-	if request.Spec.SecretConfig.ObjectMeta != nil {
-		secretObjectMeta = *request.Spec.SecretConfig.ObjectMeta.DeepCopy()
-		secretObjectMeta.Namespace = request.Namespace
-	} else {
-		secretObjectMeta = metav1.ObjectMeta{Name: secret.Name, Namespace: request.Namespace}
-	}
-
-	secretCopy := &corev1.Secret{ObjectMeta: secretObjectMeta}
+	// Create Secret copy
+	secretCopy := &corev1.Secret{ObjectMeta: request.Spec.SecretObjectMeta}
+	secretCopy.ObjectMeta.Namespace = request.Namespace
 	result, err := ctrl.CreateOrUpdate(ctx, r, secretCopy, func() error {
 		secretCopy.Data = secret.Data
 		err := controllerutil.SetControllerReference(request, secretCopy, r.Scheme)
 		return err
 	})
 	if err != nil {
+		request.Status.State = delav1alpha1.RequestStateError
+		r.Recorder.Event(request, corev1.EventTypeNormal, "Failed", "Could not create Secret copy")
 		return ctrl.Result{}, err
 	}
+
+	// Delete Secret copy if SecretObjectMeta has changed name
+	var childSecrets corev1.SecretList
+	if err := r.List(ctx, &childSecrets, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}); err != nil {
+		return ctrl.Result{}, err
+	}
+	for _, childSecret := range childSecrets.Items {
+		if childSecret.Name != request.Spec.SecretObjectMeta.Name {
+			log.Info("Deleting old Secret copy due to name change", "old", childSecret.Name, "new", request.Spec.SecretObjectMeta.Name)
+			if err := r.Delete(ctx, &childSecret); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
+	// Creation completed sucessfully
+	request.Status.State = delav1alpha1.RequestStateReady
 	if result == controllerutil.OperationResultCreated {
 		r.Recorder.Eventf(request, corev1.EventTypeNormal, "Created", "Created Secret %q", secretCopy.Name)
 	} else {
 		r.Recorder.Eventf(request, corev1.EventTypeNormal, "Updated", "Updated Secret %q", secretCopy.Name)
 	}
-
-	request.Status.State = delav1alpha1.RequestStateReady
 	return ctrl.Result{}, nil
 }
 
 func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(&corev1.Secret{}, jobOwnerKey, func(rawObj runtime.Object) []string {
+		secret := rawObj.(*corev1.Secret)
+		owner := metav1.GetControllerOf(secret)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != apiGVStr || owner.Kind != "Request" {
+			return nil
+		}
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+
 	if err := mgr.GetFieldIndexer().IndexField(&delav1alpha1.Request{}, ".metadata.intentRef", func(rawObj runtime.Object) []string {
 		request := rawObj.(*delav1alpha1.Request)
 		return []string{request.Spec.IntentRef.Namespace + "/" + request.Spec.IntentRef.Name}

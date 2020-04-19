@@ -12,3 +12,5 @@ spec:
   intentRef:
     name: main
     namespace: ns1
+  secretMetadata:
+    name: main

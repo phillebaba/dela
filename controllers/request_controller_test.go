@@ -32,10 +32,9 @@ var _ = Describe("Request Controller", func() {
 			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
 			Eventually(func() *corev1.Secret {
 				secretCopy := &corev1.Secret{}
-				_ = k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
+				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
 				return secretCopy
 			}, timeout, interval).Should(SatisfyAll(
-				WithTransform(func(e *corev1.Secret) string { return e.Name }, Equal(secret.Name)),
 				WithTransform(func(e *corev1.Secret) int { return len(e.Data) }, Equal(len(secret.Data))),
 				WithTransform(func(e *corev1.Secret) []byte { return e.Data["foo"] }, Equal(secret.Data["foo"])),
 			))
@@ -52,16 +51,15 @@ var _ = Describe("Request Controller", func() {
 			Expect(k8sClient.Update(ctx, secret)).Should(Succeed())
 			Eventually(func() *corev1.Secret {
 				secretCopy := &corev1.Secret{}
-				_ = k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
+				_ = k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
 				return secretCopy
 			}, timeout, interval).Should(SatisfyAll(
-				WithTransform(func(e *corev1.Secret) string { return e.Name }, Equal(secret.Name)),
 				WithTransform(func(e *corev1.Secret) int { return len(e.Data) }, Equal(len(secret.Data))),
 				WithTransform(func(e *corev1.Secret) []byte { return e.Data["foo"] }, Equal(secret.Data["foo"])),
 			))
 		})
 
-		It("Triggers an update of a Request from an Intent", func() {
+		It("Triggers an update of a Request from an Intent change", func() {
 			secret, intent, request := baseResources(source, dest)
 
 			By("Creating a Request and Secret")
@@ -129,7 +127,7 @@ var _ = Describe("Request Controller", func() {
 			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
-				return k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
 			}).Should(Succeed())
 
 			By("Deleting the Intent")
@@ -143,7 +141,7 @@ var _ = Describe("Request Controller", func() {
 			)
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
-				return k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
 			}).Should(Succeed())
 		})
 
@@ -156,7 +154,7 @@ var _ = Describe("Request Controller", func() {
 			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
-				return k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
 			}).Should(Succeed())
 
 			By("Deleting the Secret")
@@ -170,17 +168,12 @@ var _ = Describe("Request Controller", func() {
 			)
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
-				return k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: dest.Name}, secretCopy)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
 			}).Should(Succeed())
 		})
 
-		It("Allows metadata override of the Secret copy", func() {
+		It("Updates Secret copy when ObjectMeta changes", func() {
 			secret, intent, request := baseResources(source, dest)
-			request.Spec.SecretConfig.ObjectMeta = &metav1.ObjectMeta{
-				Name:        "override",
-				Labels:      map[string]string{"foo": "bar"},
-				Annotations: map[string]string{"foo": "bar"},
-			}
 
 			By("Creating an Intent, Secret, and Request")
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
@@ -188,8 +181,23 @@ var _ = Describe("Request Controller", func() {
 			Expect(k8sClient.Create(ctx, request)).Should(Succeed())
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
-				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretConfig.ObjectMeta.Name, Namespace: dest.Name}, secretCopy)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
 			}).Should(Succeed())
+
+			By("Changing the Secret copy name")
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, request)).Should(Succeed())
+			oldName := request.Spec.SecretObjectMeta.Name
+			request.Spec.SecretObjectMeta.Name = "something-new"
+			Expect(k8sClient.Update(ctx, request)).Should(Succeed())
+			Eventually(func() error {
+				secretCopy := &corev1.Secret{}
+				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
+			}).Should(Succeed())
+
+			Eventually(func() error {
+				secretCopy := &corev1.Secret{}
+				return k8sClient.Get(ctx, types.NamespacedName{Name: oldName, Namespace: request.Namespace}, secretCopy)
+			}).ShouldNot(Succeed())
 		})
 	})
 
@@ -207,6 +215,7 @@ var _ = Describe("Request Controller", func() {
 
 		It("Detects the conflicting destination Secret", func() {
 			secret, intent, request := baseResources(source, dest)
+			request.Spec.SecretObjectMeta.Name = existSecret.Name
 
 			By("Creating a source Secret, Intent, and Request")
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
@@ -262,6 +271,10 @@ func baseResources(source *corev1.Namespace, dest *corev1.Namespace) (*corev1.Se
 			IntentRef: delav1alpha1.IntentReference{
 				Name:      intent.Name,
 				Namespace: intent.Namespace,
+			},
+			SecretObjectMeta: metav1.ObjectMeta{
+				Name:      name + "-copy",
+				Namespace: dest.Name + "-wrong",
 			},
 		},
 	}

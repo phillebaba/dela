@@ -62,6 +62,8 @@ spec:
   intentRef:
     name: main
     namespace: ns1
+  secretMetadata:
+    name: main
 ```
 
 This should now result in an identical Secret in the Second Namespace.
