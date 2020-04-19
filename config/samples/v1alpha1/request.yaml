@@ -6,3 +6,5 @@ spec:
   intentRef:
     name: main
     namespace: default
+  secretMetadata:
+    name: main

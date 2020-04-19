@@ -6,22 +6,18 @@ import (
 
 // IntentReference contains the name and namespace of an Intent.
 type IntentReference struct {
-	Name      string `json:"name"`
+	// Name of Intent.
+	Name string `json:"name"`
+	// Namespace of Intent.
 	Namespace string `json:"namespace"`
-}
-
-type SecretConfiguration struct {
-	// If true will append suffix to end of Secret.
-	AppendSuffix bool `json:"suffix"`
-	// Overrides ObjectMeta of the Secret copy.
-	ObjectMeta *metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
 // RequestSpec defines the desired state of Request
 type RequestSpec struct {
-	SecretConfig SecretConfiguration `json:"config"`
-	// Refernce to intent to copy Secret from
+	// Identifier of Intent to make Request for.
 	IntentRef IntentReference `json:"intentRef"`
+	// Overrides ObjectMeta of the Secret copy.
+	SecretObjectMeta metav1.ObjectMeta `json:"secretMetadata"`
 }
 
 // RequestState represents the current state of a Request.

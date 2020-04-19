@@ -43,31 +43,25 @@ spec:
         spec:
           description: RequestSpec defines the desired state of Request
           properties:
-            config:
-              properties:
-                metadata:
-                  description: Overrides ObjectMeta of the Secret copy.
-                  type: object
-                suffix:
-                  description: If true will append suffix to end of Secret.
-                  type: boolean
-              required:
-              - suffix
-              type: object
             intentRef:
-              description: Refernce to intent to copy Secret from
+              description: Identifier of Intent to make Request for.
               properties:
                 name:
+                  description: Name of Intent.
                   type: string
                 namespace:
+                  description: Namespace of Intent.
                   type: string
               required:
               - name
               - namespace
               type: object
+            metadata:
+              description: Overrides ObjectMeta of the Secret copy.
+              type: object
           required:
-          - config
           - intentRef
+          - metadata
           type: object
         status:
           description: RequestStatus defines the observed state of Request

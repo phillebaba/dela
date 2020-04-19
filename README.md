@@ -62,6 +62,8 @@ spec:
   intentRef:
     name: main
     namespace: ns1
+  secretMetadata:
+    name: main
 ```
 
 This should now result in an identical Secret in the Second Namespace.
@@ -82,11 +84,8 @@ No. It could cause problems with Pods that depend on the Secret. Additionally th
 **Will my Secret copy be deleted if the namespace whitelist changes?**
 No. See the previous answer for the reason why. The one caveat is that the Secret copy will not be updated if the source Secret changes.
 
-**Can I change the name of the Secret?**
-Yes. All of the metadata of the copied Secret can be set in the Request.
-
-**Will my copied Secret inheret metadata?**
-No. The only thing that is acutally copied is the Secret data, the rest is not inherited.
+**Will my Secret copy inherit any metadata?**
+No. To simplify the workflow the Secret copy will not inherit any metadata. This means that the Request is required to specify the name of the Secret copy.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
