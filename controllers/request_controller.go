@@ -102,7 +102,7 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// Get Secret referenced by Intent
-	secretNN := types.NamespacedName{Name: intent.Spec.SecretReference, Namespace: intent.Namespace}
+	secretNN := types.NamespacedName{Name: intent.Spec.SecretName, Namespace: intent.Namespace}
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, secretNN, secret); err != nil {
 		return ctrl.Result{}, err
@@ -173,7 +173,7 @@ func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			ctx := context.Background()
 
 			var intents delav1alpha1.IntentList
-			if err := r.List(ctx, &intents, client.InNamespace(a.Meta.GetNamespace()), client.MatchingField(".metadata.secretRef", a.Meta.GetName())); err != nil {
+			if err := r.List(ctx, &intents, client.InNamespace(a.Meta.GetNamespace()), client.MatchingField(".metadata.secretName", a.Meta.GetName())); err != nil {
 				return []reconcile.Request{}
 			}
 

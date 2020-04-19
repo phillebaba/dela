@@ -38,7 +38,7 @@ metadata:
   name: main
   namespace: ns1
 spec:
-  secretRef: main
+  secretName: main
   namespaceWhitelist:
   - ns2
 ---

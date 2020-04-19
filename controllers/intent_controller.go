@@ -45,7 +45,7 @@ func (r *IntentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}()
 
 	secret := &corev1.Secret{}
-	if err := r.Get(ctx, types.NamespacedName{Name: intent.Spec.SecretReference, Namespace: intent.Namespace}, secret); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: intent.Spec.SecretName, Namespace: intent.Namespace}, secret); err != nil {
 		intent.Status.State = delav1alpha1.IntentStateError
 		r.Recorder.Event(intent, corev1.EventTypeNormal, "MissingSecret", "Referenced Secret is missing")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -56,9 +56,9 @@ func (r *IntentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 }
 
 func (r *IntentReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(&delav1alpha1.Intent{}, ".metadata.secretRef", func(rawObj runtime.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(&delav1alpha1.Intent{}, ".metadata.secretName", func(rawObj runtime.Object) []string {
 		intent := rawObj.(*delav1alpha1.Intent)
-		return []string{intent.Spec.SecretReference}
+		return []string{intent.Spec.SecretName}
 	}); err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (r *IntentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			ctx := context.Background()
 
 			var intents delav1alpha1.IntentList
-			if err := r.List(ctx, &intents, client.InNamespace(a.Meta.GetNamespace()), client.MatchingField(".metadata.secretRef", a.Meta.GetName())); err != nil {
+			if err := r.List(ctx, &intents, client.InNamespace(a.Meta.GetNamespace()), client.MatchingField(".metadata.secretName", a.Meta.GetName())); err != nil {
 				return []reconcile.Request{}
 			}
 

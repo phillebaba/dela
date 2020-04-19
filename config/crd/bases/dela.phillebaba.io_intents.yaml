@@ -49,11 +49,11 @@ spec:
               items:
                 type: string
               type: array
-            secretRef:
+            secretName:
               description: Reference to Secret that is shared by Intent.
               type: string
           required:
-          - secretRef
+          - secretName
           type: object
         status:
           description: IntentStatus defines the observed state of Intent

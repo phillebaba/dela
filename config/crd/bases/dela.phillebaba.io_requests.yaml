@@ -56,12 +56,12 @@ spec:
               - name
               - namespace
               type: object
-            metadata:
+            secretMetadata:
               description: Overrides ObjectMeta of the Secret copy.
               type: object
           required:
           - intentRef
-          - metadata
+          - secretMetadata
           type: object
         status:
           description: RequestStatus defines the observed state of Request

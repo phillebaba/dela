@@ -38,7 +38,7 @@ var _ = Describe("Intent Controller", func() {
 					Namespace: key.Namespace,
 				},
 				Spec: delav1alpha1.IntentSpec{
-					SecretReference: secret.Name,
+					SecretName: secret.Name,
 				},
 			}
 

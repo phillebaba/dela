@@ -259,7 +259,7 @@ func baseResources(source *corev1.Namespace, dest *corev1.Namespace) (*corev1.Se
 			Namespace: source.Name,
 		},
 		Spec: delav1alpha1.IntentSpec{
-			SecretReference: secret.Name,
+			SecretName: secret.Name,
 		},
 	}
 	request := &delav1alpha1.Request{

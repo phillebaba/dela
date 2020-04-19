@@ -3,4 +3,4 @@ kind: Intent
 metadata:
   name: main
 spec:
-  secretRef: main
+  secretName: main

@@ -7,7 +7,7 @@ import (
 // IntentSpec defines the desired state of Intent
 type IntentSpec struct {
 	// Reference to Secret that is shared by Intent.
-	SecretReference string `json:"secretRef"`
+	SecretName string `json:"secretName"`
 	// Namespaces that are whitelisted to access the Intent.
 	// Supports either plain text or regex.
 	// Empty list means allowing all namespaces.
