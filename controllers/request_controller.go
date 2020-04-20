@@ -163,7 +163,8 @@ func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if err := mgr.GetFieldIndexer().IndexField(&delav1alpha1.Request{}, intentRefKey, func(rawObj runtime.Object) []string {
 		request := rawObj.(*delav1alpha1.Request)
-		return []string{request.Spec.IntentRef.Namespace + "/" + request.Spec.IntentRef.Name}
+		nn := types.NamespacedName{Namespace: request.Spec.IntentRef.Namespace, Name: request.Spec.IntentRef.Name}
+		return []string{nn.String()}
 	}); err != nil {
 		return err
 	}
@@ -182,7 +183,8 @@ func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 				// Get Requests for Intent and add to reconcile request
 				var requests delav1alpha1.RequestList
-				if err := r.List(ctx, &requests, client.MatchingField(intentRefKey, secret.Namespace+"/"+oRef.Name)); err != nil {
+				nn := types.NamespacedName{Namespace: secret.Namespace, Name: oRef.Name}
+				if err := r.List(ctx, &requests, client.MatchingField(intentRefKey, nn.String())); err != nil {
 					return []reconcile.Request{}
 				}
 				for _, request := range requests.Items {
@@ -202,7 +204,8 @@ func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			ctx := context.Background()
 
 			var requests delav1alpha1.RequestList
-			if err := r.List(ctx, &requests, client.MatchingField(intentRefKey, a.Meta.GetNamespace()+"/"+a.Meta.GetName())); err != nil {
+			nn := types.NamespacedName{Namespace: a.Meta.GetNamespace(), Name: a.Meta.GetName()}
+			if err := r.List(ctx, &requests, client.MatchingField(intentRefKey, nn.String())); err != nil {
 				return []reconcile.Request{}
 			}
 			reconcileReq := []reconcile.Request{}
