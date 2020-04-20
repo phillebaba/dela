@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	delav1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
+	delav1alpha1 "github.com/phillebaba/dela/pkg/api/v1alpha1"
 )
 
 var _ = Describe("Intent Controller", func() {
