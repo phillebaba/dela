@@ -10,8 +10,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	delav1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
@@ -47,8 +47,14 @@ func (r *IntentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: intent.Spec.SecretName, Namespace: intent.Namespace}, secret); err != nil {
 		intent.Status.State = delav1alpha1.IntentStateError
-		r.Recorder.Event(intent, corev1.EventTypeNormal, "MissingSecret", "Referenced Secret is missing")
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		r.Recorder.Event(intent, corev1.EventTypeNormal, "MissingSecret", "Can't get Secret specified by Intent")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.setOwnerReference(intent, secret); err != nil {
+		intent.Status.State = delav1alpha1.IntentStateError
+		r.Recorder.Event(intent, corev1.EventTypeNormal, "OwnerReference", "Could not set owner reference on Secret")
+		return ctrl.Result{}, err
 	}
 
 	intent.Status.State = delav1alpha1.IntentStateReady
@@ -56,39 +62,26 @@ func (r *IntentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 }
 
 func (r *IntentReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(&delav1alpha1.Intent{}, ".metadata.secretName", func(rawObj runtime.Object) []string {
-		intent := rawObj.(*delav1alpha1.Intent)
-		return []string{intent.Spec.SecretName}
-	}); err != nil {
-		return err
-	}
-
-	mapFn := handler.ToRequestsFunc(
-		func(a handler.MapObject) []reconcile.Request {
-			ctx := context.Background()
-
-			var intents delav1alpha1.IntentList
-			if err := r.List(ctx, &intents, client.InNamespace(a.Meta.GetNamespace()), client.MatchingField(".metadata.secretName", a.Meta.GetName())); err != nil {
-				return []reconcile.Request{}
-			}
-
-			requests := []reconcile.Request{}
-			for _, intent := range intents.Items {
-				requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-					Name:      intent.Name,
-					Namespace: intent.Namespace,
-				}})
-			}
-
-			return requests
-		},
-	)
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&delav1alpha1.Intent{}).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: mapFn},
+			&handler.EnqueueRequestForOwner{
+				OwnerType:    &delav1alpha1.Intent{},
+				IsController: false,
+			},
 		).
 		Complete(r)
+}
+
+func (r *IntentReconciler) setOwnerReference(intent *delav1alpha1.Intent, secret *corev1.Secret) error {
+	ctx := context.Background()
+	if err := controllerutil.SetOwnerReference(intent, secret, r.Scheme); err != nil {
+		return err
+	}
+	if err := r.Update(ctx, secret); err != nil {
+		return err
+	}
+
+	return nil
 }

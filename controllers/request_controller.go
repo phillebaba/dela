@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	jobOwnerKey = ".metadata.controller"
-	apiGVStr    = delav1alpha1.GroupVersion.String()
+	jobOwnerKey  = ".metadata.controller"
+	intentRefKey = ".metadata.intentRef"
+	apiGVStr     = delav1alpha1.GroupVersion.String()
 )
 
 // RequestReconciler reconciles a Request object
@@ -79,14 +80,13 @@ func (r *RequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if apierrors.IsNotFound(err) {
 			request.Status.State = delav1alpha1.RequestStateError
 			r.Recorder.Event(request, corev1.EventTypeNormal, "MissingIntent", "Could not find referenced Intent")
-			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 	if intent.Status.State != delav1alpha1.IntentStateReady {
 		request.Status.State = delav1alpha1.RequestStateError
 		r.Recorder.Event(request, corev1.EventTypeNormal, "IntentNotReady", "Intent not in ready state")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, errors.New("Intent not in ready state")
 	}
 
 	// Check if Request from namespace is whitelisted
@@ -161,7 +161,7 @@ func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(&delav1alpha1.Request{}, ".metadata.intentRef", func(rawObj runtime.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(&delav1alpha1.Request{}, intentRefKey, func(rawObj runtime.Object) []string {
 		request := rawObj.(*delav1alpha1.Request)
 		return []string{request.Spec.IntentRef.Namespace + "/" + request.Spec.IntentRef.Name}
 	}); err != nil {
@@ -171,19 +171,20 @@ func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	secretMapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			ctx := context.Background()
+			secret := a.Object.(*corev1.Secret)
 
-			var intents delav1alpha1.IntentList
-			if err := r.List(ctx, &intents, client.InNamespace(a.Meta.GetNamespace()), client.MatchingField(".metadata.secretName", a.Meta.GetName())); err != nil {
-				return []reconcile.Request{}
-			}
-
+			// Iterate Secret owners
 			reconcileReq := []reconcile.Request{}
-			for _, intent := range intents.Items {
-				var requests delav1alpha1.RequestList
-				if err := r.List(ctx, &requests, client.MatchingField(".metadata.intentRef", intent.Namespace+"/"+intent.Name)); err != nil {
-					return []reconcile.Request{}
+			for _, oRef := range secret.OwnerReferences {
+				if oRef.APIVersion != apiGVStr || oRef.Kind != "Intent" {
+					continue
 				}
 
+				// Get Requests for Intent and add to reconcile request
+				var requests delav1alpha1.RequestList
+				if err := r.List(ctx, &requests, client.MatchingField(intentRefKey, secret.Namespace+"/"+oRef.Name)); err != nil {
+					return []reconcile.Request{}
+				}
 				for _, request := range requests.Items {
 					reconcileReq = append(reconcileReq, reconcile.Request{NamespacedName: types.NamespacedName{
 						Name:      request.Name,
@@ -201,10 +202,9 @@ func (r *RequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			ctx := context.Background()
 
 			var requests delav1alpha1.RequestList
-			if err := r.List(ctx, &requests, client.MatchingField(".metadata.intentRef", a.Meta.GetNamespace()+"/"+a.Meta.GetName())); err != nil {
+			if err := r.List(ctx, &requests, client.MatchingField(intentRefKey, a.Meta.GetNamespace()+"/"+a.Meta.GetName())); err != nil {
 				return []reconcile.Request{}
 			}
-
 			reconcileReq := []reconcile.Request{}
 			for _, request := range requests.Items {
 				reconcileReq = append(reconcileReq, reconcile.Request{NamespacedName: types.NamespacedName{
