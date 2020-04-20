@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	delav1alpha1 "github.com/phillebaba/dela/api/v1alpha1"
+	delav1alpha1 "github.com/phillebaba/dela/pkg/api/v1alpha1"
 )
 
 // IntentReconciler reconciles a Intent object
