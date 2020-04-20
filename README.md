@@ -4,16 +4,9 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/phillebaba/dela)](https://goreportcard.com/report/github.com/phillebaba/dela)
 [![Docker Pulls](https://img.shields.io/docker/pulls/phillebaba/dela)](https://hub.docker.com/r/phillebaba/dela)
 
-Kubernetes controller to share Secrets between namespaces.
+A solution to share secrets between namespaces in Kuberentes.
 
-## Background
-Within Kubernetes, a Pod can only read a Secret that exists within the same Namespce as itself. There are probably many reasons for this, one being security concerns. This limitations can create pain points, as teams may want to share Secrets between each other, but they only have access to their own Namespaces. Dela is a proposed solution to the problem, by allowing specific Secrets to be shared from a source Namespace to be shared with a destination Namespace.
-
-<p align="center">
-  <img src="./assets/overview.png">
-</p>
-
-Dela works by creating an Intent in the source Namespace and a Request in the destination Namespace. The Intent defines which Secret should be shared. The Request defines which Intent to copy the secret from. The architecture allows a security model where a Secret can only be shared if that explicitly the intent.
+Within Kubernetes, a Pod can only read a Secret that exists within the same Namespace as itself. This limitations can create many pain points, as teams may want to share Secrets between each other, but they only have access to their own Namespaces. Dela is a alternative solution to the problem, by allowing specific Secrets to be copied actross Namespaces automatically.
 
 ## Install
 Easiest way is to add a git reference in your `kustomization.yaml` file.
@@ -29,8 +22,15 @@ Or you can add the CRD and Deploy the controller in your cluster manually.
 kustomize build config/default | kubectl apply -f -
 ```
 
-## How to use
-First create a Secret and a Intent that references the Secret in one Namespace. Note the `namespaceWhitelist` field that indicates which Namespaces are whitelisted to create a request for the intent.
+## Architecture
+Dela uses Intent/Request model to implement it's logic. The Intent specifies which Secret should be shared in the Namespace, and the Requests asks for a copy from the Intent. This model has the benefit of allowing control of what Secrets are shared on one end, and what Secrets are copied on the other end.
+
+<p align="center">
+  <img src="./assets/overview.png">
+</p>
+
+## How To
+After installing the controller create a Secret and a Intent that references the Secret in one Namespace. Note the `namespaceWhitelist` field that indicates which Namespaces are whitelisted to create a request for the intent.
 ```yaml
 apiVersion: dela.phillebaba.io/v1alpha1
 kind: Intent
@@ -38,7 +38,7 @@ metadata:
   name: main
   namespace: ns1
 spec:
-  secretRef: main
+  secretName: main
   namespaceWhitelist:
   - ns2
 ---

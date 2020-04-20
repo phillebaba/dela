@@ -47,6 +47,7 @@ var _ = Describe("Request Controller", func() {
 			)
 
 			By("Updating the Secret data")
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret)).Should(Succeed())
 			secret.Data["foo"] = []byte("baz")
 			Expect(k8sClient.Update(ctx, secret)).Should(Succeed())
 			Eventually(func() *corev1.Secret {
@@ -128,7 +129,7 @@ var _ = Describe("Request Controller", func() {
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
 				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
-			}).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
 
 			By("Deleting the Intent")
 			Expect(k8sClient.Delete(ctx, intent)).Should(Succeed())
@@ -142,7 +143,7 @@ var _ = Describe("Request Controller", func() {
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
 				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
-			}).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
 		})
 
 		It("Does not delete copied Secret when the source Secret is deleted", func() {
@@ -155,7 +156,7 @@ var _ = Describe("Request Controller", func() {
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
 				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
-			}).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
 
 			By("Deleting the Secret")
 			Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
@@ -169,7 +170,7 @@ var _ = Describe("Request Controller", func() {
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
 				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
-			}).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
 		})
 
 		It("Updates Secret copy when ObjectMeta changes", func() {
@@ -182,7 +183,7 @@ var _ = Describe("Request Controller", func() {
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
 				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
-			}).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
 
 			By("Changing the Secret copy name")
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: request.Name, Namespace: request.Namespace}, request)).Should(Succeed())
@@ -192,12 +193,12 @@ var _ = Describe("Request Controller", func() {
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
 				return k8sClient.Get(ctx, types.NamespacedName{Name: request.Spec.SecretObjectMeta.Name, Namespace: request.Namespace}, secretCopy)
-			}).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
 
 			Eventually(func() error {
 				secretCopy := &corev1.Secret{}
 				return k8sClient.Get(ctx, types.NamespacedName{Name: oldName, Namespace: request.Namespace}, secretCopy)
-			}).ShouldNot(Succeed())
+			}, timeout, interval).ShouldNot(Succeed())
 		})
 	})
 
@@ -259,7 +260,7 @@ func baseResources(source *corev1.Namespace, dest *corev1.Namespace) (*corev1.Se
 			Namespace: source.Name,
 		},
 		Spec: delav1alpha1.IntentSpec{
-			SecretReference: secret.Name,
+			SecretName: secret.Name,
 		},
 	}
 	request := &delav1alpha1.Request{

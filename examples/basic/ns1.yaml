@@ -17,6 +17,6 @@ metadata:
   name: main
   namespace: ns1
 spec:
-  secretRef: main
+  secretName: main
   allowedNamespaces:
   - ns2
